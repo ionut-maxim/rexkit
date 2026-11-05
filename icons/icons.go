@@ -23,6 +23,8 @@ type Set struct {
 	Filter, Back, BoxOn, BoxOff string
 	Bullets                     []string
 	Globe, App                  string
+	Copy, Mail, Plus, Search    string
+	Power                       string
 
 	PillL, PillR, Sep string
 }
@@ -38,6 +40,7 @@ var Nerd = Set{
 	Check: "", Cross: "", Spinner: "", Info: "", Warning: "", Dot: "", Edit: "",
 	DoIt: "", Decide: "", Arrow: "", Chevron: "", Reply: "", Link: "", Image: "",
 	Filter: "\uf0b0", Back: "\uf053", BoxOn: "\uf14a", BoxOff: "\uf096", Bullets: []string{"•", "◦", "▪"}, Globe: "\uf0ac", App: "\uf10b",
+	Copy: "\uf0c5", Mail: "\uf0e0", Plus: "\uf067", Search: "\uf002", Power: "\uf011",
 	PillL: "", PillR: "", Sep: "",
 }
 
@@ -50,6 +53,7 @@ var Unicode = Set{
 	Check: "✓", Cross: "✗", Spinner: "⟳", Info: "i", Warning: "!", Dot: "●", Edit: "✎",
 	DoIt: "▸", Decide: "?", Arrow: "→", Chevron: "›", Reply: "↳", Link: "↗", Image: "▧",
 	Filter: "▾", Back: "‹", BoxOn: "☑", BoxOff: "☐", Bullets: []string{"•", "◦", "▪"}, Globe: "↗", App: "▸",
+	Copy: "⧉", Mail: "✉", Plus: "+", Search: "⌕", Power: "◉",
 	PillL: "", PillR: "", Sep: "›",
 }
 

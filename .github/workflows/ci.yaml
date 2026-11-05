@@ -1,0 +1,31 @@
+# Format check, vet and race tests on every PR and push to main.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          install_args: go
+      - name: Format, vet and test
+        run: |
+          test -z "$(gofmt -l .)" || { echo 'unformatted files:'; gofmt -l .; exit 1; }
+          go vet ./...
+          go test -race ./...

@@ -1,6 +1,7 @@
 // Command hello is the smallest rexkit app, to start new apps from: two
 // views as tabs, a list of cards you can tap, a detail screen with
-// markdown, and the frame's header, key hints and Rex tab status.
+// markdown, a form (n adds a note), and the frame's header, key hints and
+// Rex tab status.
 //
 //	go run github.com/ionut-maxim/rexkit/examples/hello
 package main
@@ -16,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/ionut-maxim/rexkit/components"
+	"github.com/ionut-maxim/rexkit/form"
 	"github.com/ionut-maxim/rexkit/icons"
 	"github.com/ionut-maxim/rexkit/markdown"
 	"github.com/ionut-maxim/rexkit/shell"
@@ -120,10 +122,29 @@ func (s *detailScreen) View(width, _ int) string {
 	return "\n" + lipgloss.NewStyle().PaddingLeft(2).Render(md)
 }
 
+// newNote is a form; submitting adds the note to the list.
+func newNote(tall func() bool) shell.Screen {
+	return form.New(form.Options{
+		Title:  "New note",
+		Submit: "Add",
+		Fields: []form.Field{
+			{Label: "Title", Required: true, Placeholder: "What it's about"},
+			{Label: "Subtitle", Hint: "Optional, one line"},
+		},
+		OnSubmit: func(v []string) tea.Cmd {
+			// A real app runs its job here and answers with form.Done.
+			notes = append(notes, note{v[0], v[1], v[0]})
+			return func() tea.Msg { return form.Done{Status: "Added " + v[0]} }
+		},
+		Tall: tall,
+	})
+}
+
 func main() {
 	term := &shell.Term{Dark: true}
+	var frame *shell.Frame
 	about := note{"About", "", "This is **rexkit**'s example app. Read `examples/hello/main.go`, then copy it to start a new app."}
-	frame := shell.New(shell.Options{
+	frame = shell.New(shell.Options{
 		App:  "hello",
 		Term: term,
 		Views: []shell.View{
@@ -132,6 +153,10 @@ func main() {
 			{Name: "About", Icon: icons.Current.Info, Root: func() shell.Screen { return newDetail(term, about) }},
 		},
 		Context: func() string { return "rexkit" },
+		Keys: []shell.GlobalKey{{
+			Binding: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new note")),
+			Run:     func() tea.Cmd { return shell.PushCmd(newNote(frame.Tall)) },
+		}},
 	})
 	if _, err := tea.NewProgram(frame).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

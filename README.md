@@ -21,7 +21,15 @@ go get github.com/ionut-maxim/rexkit
 | `markdown` | GitHub-flavoured markdown drawn in the app's palette. Code is highlighted with Chroma, tables are grids or one card per row, links are OSC 8, and images are split out for you to draw. |
 | `rexstatus` | Rex's Program Status Protocol (OSC 7501): a spinner, done or error mark on the app's tab while you're elsewhere. |
 
-An app frame (`shell`) is next: view tabs, breadcrumbs, a history per view, and a footer of hints.
+| `shell` | The app frame. It draws a header with a tab for each view and breadcrumbs, the screen on top, and a footer with the status line and key hints as buttons. Each view keeps its own stack of screens, so switching away and back returns to where you were. It probes the terminal (background colour, kitty graphics, cell size), counts running jobs for Rex's tab status, and focuses on hover with a desktop pointer. Apps plug in their views, global keys, a loader, and a `Hook` that sees every message first. |
+
+## Start an app
+
+`examples/hello` is the smallest app: two views as tabs, a list of cards you can tap, and a detail screen with markdown. Copy it to start a new one.
+
+```sh
+go run github.com/ionut-maxim/rexkit/examples/hello
+```
 
 ## Design rules
 

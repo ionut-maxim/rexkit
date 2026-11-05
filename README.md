@@ -20,7 +20,6 @@ go get github.com/ionut-maxim/rexkit
 | `bigtext` | Big headings and tall image buttons drawn as kitty images, for terminals that can't draw bigger text. JetBrains Mono Bold is embedded. |
 | `markdown` | GitHub-flavoured markdown drawn in the app's palette. Code is highlighted with Chroma, tables are grids or one card per row, links are OSC 8, and images are split out for you to draw. |
 | `rexstatus` | Rex's Program Status Protocol (OSC 7501): a spinner, done or error mark on the app's tab while you're elsewhere. |
-
 | `shell` | The app frame. It draws a header with a tab for each view and breadcrumbs, the screen on top, and a footer with the status line and key hints as buttons. Each view keeps its own stack of screens, so switching away and back returns to where you were. It probes the terminal (background colour, kitty graphics, cell size), counts running jobs for Rex's tab status, and focuses on hover with a desktop pointer. Apps plug in their views, global keys, a loader, and a `Hook` that sees every message first. |
 
 ## Start an app

@@ -164,6 +164,10 @@ type Options struct {
 	Loading func() string
 	// ErrText words an error for the status line.
 	ErrText func(error) string
+	// OnFocus, when set, turns on the terminal's focus reports and runs
+	// each time the terminal gains focus once the views have started
+	// (a Rex tab coming back to the front), for example to reload.
+	OnFocus func() tea.Cmd
 }
 
 // Frame is the root model.
@@ -536,6 +540,12 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SwitchView:
 		return f, f.SwitchTo(msg.View)
 
+	case tea.FocusMsg:
+		if f.o.OnFocus != nil && f.started {
+			return f, f.o.OnFocus()
+		}
+		return f, nil
+
 	case Refresh:
 		if top := f.Top(); top != nil {
 			return f, top.Refresh()
@@ -591,6 +601,7 @@ func (f *Frame) View() tea.View {
 	// Selecting text or following a link then needs shift+click (or the
 	// terminal's own modifier).
 	v.MouseMode = tea.MouseModeAllMotion
+	v.ReportFocus = f.o.OnFocus != nil
 	return v
 }
 

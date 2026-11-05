@@ -110,3 +110,26 @@ func TestProgressCountsJobs(t *testing.T) {
 		t.Fatal("the last job reports done")
 	}
 }
+
+func TestOnFocus(t *testing.T) {
+	if New(Options{App: "demo", Images: ImagesOff}).View().ReportFocus {
+		t.Fatal("no focus reports without OnFocus")
+	}
+	calls := 0
+	closed := 0
+	f := New(Options{App: "demo", Images: ImagesOff, OnFocus: func() tea.Cmd { calls++; return nil },
+		Views: []View{{Name: "Mail", Root: func() Screen { return &page{"mail", &closed} }}}})
+	if !f.View().ReportFocus {
+		t.Fatal("OnFocus turns on focus reports")
+	}
+	f.Update(tea.FocusMsg{})
+	if calls != 0 {
+		t.Fatal("OnFocus waits for Start")
+	}
+	exec(f.Start())
+	f.Update(tea.FocusMsg{})
+	f.Update(tea.BlurMsg{})
+	if calls != 1 {
+		t.Fatalf("OnFocus ran %d times, want 1", calls)
+	}
+}

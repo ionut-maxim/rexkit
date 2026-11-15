@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/ionut-maxim/rexkit/compare/v0.2.0...v0.3.0) (2026-11-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* the markdown and kitty packages, bigtext.Heading, bigtext.CellKnown and the kitty.Cell global are gone; use github.com/ionut-maxim/markdown with Term.Caps and teamd, and pass Term.Cell to bigtext.Strip. Rendered markdown changes.
+
+### Features
+
+* use the markdown library for markdown, kitty graphics and headings ([a84774a](https://github.com/ionut-maxim/rexkit/commit/a84774a7ad0fad32a34e2c18d52795f4fa278a44))
+
 ## [0.2.0](https://github.com/ionut-maxim/rexkit/compare/v0.1.0...v0.2.0) (2026-11-05)
 
 

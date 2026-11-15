@@ -15,11 +15,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/ionut-maxim/markdown"
+	"github.com/ionut-maxim/markdown/teamd"
 
 	"github.com/ionut-maxim/rexkit/components"
 	"github.com/ionut-maxim/rexkit/form"
 	"github.com/ionut-maxim/rexkit/icons"
-	"github.com/ionut-maxim/rexkit/markdown"
 	"github.com/ionut-maxim/rexkit/shell"
 	"github.com/ionut-maxim/rexkit/theme"
 )
@@ -30,6 +31,7 @@ var notes = []note{
 	{"Tap a card", "Focus, then open", "Tap a card to **focus** it, and tap it again to open it. Keys do the same: `j`/`k` and `enter`."},
 	{"Tabs keep their place", "Each view has its own history", "Each view keeps its own history.\n\n- Open this note\n- Switch to *About* and back\n- You're still here"},
 	{"Code is highlighted", "Chroma, in the app's palette", "```go\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n```"},
+	{"Pictures in markdown", "Headings, alerts and diagrams", "# Big heading\n\n> [!TIP]\n> In Rex, headings, alert icons and diagrams are drawn as pictures.\n\n```mermaid\nflowchart LR\n    A[List] --> B[Detail]\n    B --> A\n```"},
 }
 
 // listScreen shows the notes as cards. Taps arrive with body-relative
@@ -102,23 +104,48 @@ func (s *listScreen) View(width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
-// detailScreen renders a note's markdown in the app's palette.
+// detailScreen renders a note's markdown in the app's palette, with the
+// markdown library. teamd sends its pictures (headings, alert icons,
+// diagrams); the frame has already asked the terminal what it can do.
 type detailScreen struct {
-	term *shell.Term
-	n    note
+	term  *shell.Term
+	n     note
+	r     *markdown.Renderer
+	p     *teamd.Pictures
+	doc   *markdown.Doc
+	width int
 }
 
-func newDetail(t *shell.Term, n note) shell.Screen { return &detailScreen{term: t, n: n} }
+func newDetail(t *shell.Term, n note) shell.Screen {
+	r := markdown.New(markdown.Options{Theme: components.MarkdownTheme(t.Dark), Caps: t.Caps()})
+	return &detailScreen{term: t, n: n, r: r, p: teamd.New(r, teamd.Options{NoProbe: true}), doc: r.Parse(n.body)}
+}
 
-func (s *detailScreen) Init() tea.Cmd                          { return nil }
-func (s *detailScreen) Refresh() tea.Cmd                       { return nil }
-func (s *detailScreen) Title() string                          { return s.n.title }
-func (s *detailScreen) Capturing() bool                        { return false }
-func (s *detailScreen) Keys() []key.Binding                    { return nil }
-func (s *detailScreen) Update(tea.Msg) (shell.Screen, tea.Cmd) { return s, nil }
+func (s *detailScreen) Init() tea.Cmd       { return nil }
+func (s *detailScreen) Refresh() tea.Cmd    { return nil }
+func (s *detailScreen) Title() string       { return s.n.title }
+func (s *detailScreen) Capturing() bool     { return false }
+func (s *detailScreen) Keys() []key.Binding { return nil }
+
+// Close deletes the pictures when the screen goes.
+func (s *detailScreen) Close() tea.Cmd { return s.p.Close() }
+
+func (s *detailScreen) Update(msg tea.Msg) (shell.Screen, tea.Cmd) {
+	cmd := s.p.Update(msg)
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		s.width = msg.Width - 4
+		return s, tea.Batch(cmd, s.p.Show(s.width, s.doc))
+	case shell.ThemeChanged:
+		s.r.SetTheme(components.MarkdownTheme(s.term.Dark))
+		s.r.SetCaps(s.term.Caps())
+		return s, tea.Batch(cmd, s.p.Show(s.width, s.doc))
+	}
+	return s, cmd
+}
 
 func (s *detailScreen) View(width, _ int) string {
-	md := markdown.RenderTheme(s.n.body, width-4, components.MarkdownTheme(s.term.Dark))
+	md := s.r.Render(s.doc, width-4)
 	return "\n" + lipgloss.NewStyle().PaddingLeft(2).Render(md)
 }
 

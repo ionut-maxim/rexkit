@@ -1,53 +1,35 @@
-// Package bigtext draws text bigger than a terminal cell, for terminals
-// that can't size text themselves (Rex supports neither OSC 66 nor
-// double-height lines): big headings and tall buttons, drawn as images in
-// JetBrains Mono Bold and shown with kitty Unicode placeholders.
+// Package bigtext draws tall, touch-friendly buttons as images, shown
+// with kitty Unicode placeholders. Big headings live in the markdown
+// library (github.com/ionut-maxim/markdown/bigtext), whose font this uses.
 //
-// The terminal reports its cell size at start (CSI 16 t); set CellKnown
-// once it has. Rex reports a nominal 8×16 cell whatever the client's real
-// one, so images are drawn at 48 pixels a cell or more and the terminal
-// scales them into place.
+// Rex reports a nominal 8×16 cell whatever the client's real one, so
+// strips are drawn at 48 pixels a cell or more and the terminal scales
+// them into place.
 package bigtext
 
 import (
-	_ "embed"
 	"image"
 	"image/color"
 	"math"
 	"os"
-	"strings"
 	"sync"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 
-	"github.com/ionut-maxim/rexkit/kitty"
+	mdbigtext "github.com/ionut-maxim/markdown/bigtext"
+	"github.com/ionut-maxim/markdown/kitty"
+
 	"github.com/ionut-maxim/rexkit/theme"
 )
 
-// CellKnown is true once the terminal reported its cell size.
-var CellKnown bool
-
-// HeadingRows is how many cell rows one line of a big heading takes.
-const HeadingRows = 2
-
-// TitleLevel is the issue title's "heading level": drawn like a level 1
-// heading, in its own colour.
-const TitleLevel = 0
-
-// jetbrainsMonoBold is JetBrains Mono Bold, the Rex client's font
-// (SIL Open Font License 1.1, fonts/OFL.txt).
-//
-//go:embed fonts/JetBrainsMono-Bold.ttf
-var jetbrainsMonoBold []byte
-
 // FontFile, when set before the first drawing, names a TTF or OTF
-// file to draw with instead of JetBrains Mono Bold.
+// file to draw with instead of the markdown library's JetBrains Mono Bold.
 var FontFile string
 
-// Font is the font for big text: FontFile when set and readable, else
-// JetBrains Mono Bold.
+// Font is the font for buttons: FontFile when set and readable, else
+// the markdown library's JetBrains Mono Bold.
 var Font = sync.OnceValue(func() *opentype.Font {
 	if p := FontFile; p != "" {
 		if data, err := os.ReadFile(p); err == nil {
@@ -56,66 +38,8 @@ var Font = sync.OnceValue(func() *opentype.Font {
 			}
 		}
 	}
-	f, _ := opentype.Parse(jetbrainsMonoBold)
-	return f
+	return mdbigtext.Font()
 })
-
-// Heading draws text in c, wrapped to maxCols cells, each line
-// HeadingRows cells tall. Level 2 uses a smaller size.
-func Heading(text string, level, maxCols int, c color.Color) (image.Image, int, int) {
-	k := max(1, (48+kitty.Cell.H-1)/kitty.Cell.H)
-	cw, ch := kitty.Cell.W*k, kitty.Cell.H*k
-	lineH := HeadingRows * ch
-	size := float64(lineH) * 0.72
-	if level == TitleLevel {
-		size = float64(lineH) * 0.78
-	}
-	if level == 2 {
-		size = float64(lineH) * 0.58
-	}
-	face, err := opentype.NewFace(Font(), &opentype.FaceOptions{Size: size, DPI: 72, Hinting: font.HintingFull})
-	if err != nil {
-		return nil, 0, 0
-	}
-	defer face.Close()
-	maxPx := maxCols*cw - 4
-	space := font.MeasureString(face, " ")
-	var lines []string
-	var cur string
-	var curW fixed.Int26_6
-	for _, w := range strings.Fields(text) {
-		ww := font.MeasureString(face, w)
-		if cur != "" && (curW+space+ww).Ceil() > maxPx {
-			lines = append(lines, cur)
-			cur, curW = "", 0
-		}
-		if cur != "" {
-			cur += " "
-			curW += space
-		}
-		cur += w
-		curW += ww
-	}
-	if cur != "" {
-		lines = append(lines, cur)
-	}
-	widest := 0
-	for _, l := range lines {
-		widest = max(widest, font.MeasureString(face, l).Ceil())
-	}
-	if len(lines) == 0 || widest+4 > maxCols*cw {
-		return nil, 0, 0 // a word too long for the width: stay text
-	}
-	cols := (widest + 4 + cw - 1) / cw
-	img := image.NewRGBA(image.Rect(0, 0, cols*cw, len(lines)*lineH))
-	m := face.Metrics()
-	for i, l := range lines {
-		base := i*lineH + (lineH+m.Ascent.Ceil()-m.Descent.Ceil())/2
-		d := font.Drawer{Dst: img, Src: image.NewUniform(c), Face: face, Dot: fixed.P(2, base)}
-		d.DrawString(l)
-	}
-	return img, cols, len(lines) * HeadingRows
-}
 
 func hasGlyphs(face font.Face, s string) bool {
 	for _, r := range s {
@@ -124,13 +48,6 @@ func hasGlyphs(face font.Face, s string) bool {
 		}
 	}
 	return true
-}
-
-// stripScale is the pixels per cell to draw at: Rex reports a nominal
-// cell size and scales images itself, so draw big enough to stay sharp.
-func stripScale() (cw, ch int) {
-	k := max(1, (48+kitty.Cell.H-1)/kitty.Cell.H)
-	return kitty.Cell.W * k, kitty.Cell.H * k
 }
 
 // stripFace is the font at the size for button labels: about one row.
@@ -160,8 +77,7 @@ func roundRect(img *image.RGBA, x0, y0, x1, y1, r float64, c color.Color) {
 // HasGlyphs is true when the button font draws every rune of s (Nerd Font
 // icons aren't in it).
 func HasGlyphs(s string) bool {
-	_, ch := stripScale()
-	face, err := stripFace(ch)
+	face, err := stripFace(48)
 	if err != nil {
 		return false
 	}
@@ -200,9 +116,10 @@ func measureStrip(face font.Face, buttons []Button, cw int) (cols int, spans []S
 }
 
 // Strip draws buttons as rounded, filled shapes rows cells tall, in one
-// image: its width in cells and where each button is come back with it.
-func Strip(buttons []Button, rows int) (image.Image, int, []Span) {
-	cw, ch := stripScale()
+// image, for a terminal whose cells are cell (Term.Cell): its width in
+// cells and where each button is come back with it.
+func Strip(buttons []Button, rows int, cell kitty.Cell) (image.Image, int, []Span) {
+	cw, ch := mdbigtext.Scale(cell)
 	face, err := stripFace(ch)
 	if err != nil {
 		return nil, 0, nil

@@ -44,7 +44,17 @@ func (RowDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) 
 	if !ok {
 		return
 	}
-	selected := index == m.Index()
+	var matches []int
+	if m.IsFiltered() {
+		matches = m.MatchesForItem(index)
+	}
+	fmt.Fprint(w, RenderRow(r, index == m.Index(), m.IsFiltered(), matches, m.Width()))
+}
+
+// RenderRow draws a Row as RowDelegate does, two lines: the marker and
+// title (filter matches, rune indexes into the title, underlined when
+// filtered), a chevron at the right, and the details below.
+func RenderRow(r Row, selected, filtered bool, matches []int, width int) string {
 	edge := "  "
 	titleStyle := lipgloss.NewStyle().Foreground(theme.Pal.Text)
 	chev := theme.Styles.Muted.Render(icons.Current.Chevron)
@@ -54,14 +64,13 @@ func (RowDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) 
 		chev = theme.Styles.Accent.Render(icons.Current.Chevron)
 	}
 	title := r.Title()
-	if m.IsFiltered() {
+	if filtered {
 		match := titleStyle.Underline(true).Foreground(theme.Pal.Accent)
-		title = lipgloss.StyleRunes(title, m.MatchesForItem(index), match, titleStyle)
+		title = lipgloss.StyleRunes(title, matches, match, titleStyle)
 	} else {
 		title = titleStyle.Render(title)
 	}
-	width := m.Width()
 	line1 := Spread(edge+r.Marker()+" "+title, chev+" ", width)
 	line2 := ansi.Truncate(edge+"  "+r.Description(), width, "…")
-	fmt.Fprintf(w, "%s\n%s", line1, line2)
+	return line1 + "\n" + line2
 }

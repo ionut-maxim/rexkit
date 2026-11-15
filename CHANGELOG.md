@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/ionut-maxim/rexkit/compare/v0.3.0...v0.4.0) (2026-11-15)
+
+
+### Features
+
+* **lists:** lists that scroll freely, like a touch screen ([#12](https://github.com/ionut-maxim/rexkit/issues/12)) ([1f84225](https://github.com/ionut-maxim/rexkit/commit/1f84225c6af4c9c64eaf97d56fd27fb809f2c397))
+
 ## [0.3.0](https://github.com/ionut-maxim/rexkit/compare/v0.2.0...v0.3.0) (2026-11-15)
 
 

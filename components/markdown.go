@@ -1,19 +1,20 @@
 package components
 
 import (
+	"github.com/ionut-maxim/markdown"
+
 	"github.com/ionut-maxim/rexkit/icons"
-	"github.com/ionut-maxim/rexkit/markdown"
 	"github.com/ionut-maxim/rexkit/theme"
 )
 
-// MarkdownTheme gives the markdown renderer the current palette and icons.
-// dark picks Chroma's dark or light code style.
+// MarkdownTheme gives the markdown library's renderer the current palette
+// and icons. dark picks Chroma's dark or light code style.
 func MarkdownTheme(dark bool) markdown.Theme {
 	p := theme.Pal
-	return markdown.Theme{
-		Dark: dark, Text: p.Text, Subtle: p.Subtle, Muted: p.Muted, Accent: p.Accent, Accent2: p.Pink,
-		Rule: p.SurfaceHi, Surface: p.Surface, SurfaceHi: p.SurfaceHi,
-		Green: p.Green, Red: p.Red, Yellow: p.Yellow, Blue: p.Blue,
-		Bullets: icons.Current.Bullets, CheckOn: icons.Current.BoxOn, CheckOff: icons.Current.BoxOff, Quote: "▎",
-	}
+	th := markdown.DefaultTheme(dark)
+	th.Text, th.Subtle, th.Muted, th.Accent, th.Accent2 = p.Text, p.Subtle, p.Muted, p.Accent, p.Pink
+	th.Rule, th.Surface, th.SurfaceHi = p.SurfaceHi, p.Surface, p.SurfaceHi
+	th.Green, th.Red, th.Yellow, th.Blue = p.Green, p.Red, p.Yellow, p.Blue
+	th.Bullets, th.CheckOn, th.CheckOff = icons.Current.Bullets, icons.Current.BoxOn, icons.Current.BoxOff
+	return th
 }

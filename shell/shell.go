@@ -25,11 +25,11 @@ import (
 	"charm.land/lipgloss/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/ionut-maxim/markdown"
+	"github.com/ionut-maxim/markdown/kitty"
 
-	"github.com/ionut-maxim/rexkit/bigtext"
 	"github.com/ionut-maxim/rexkit/components"
 	"github.com/ionut-maxim/rexkit/icons"
-	"github.com/ionut-maxim/rexkit/kitty"
 	"github.com/ionut-maxim/rexkit/rexstatus"
 	"github.com/ionut-maxim/rexkit/theme"
 	"github.com/ionut-maxim/rexkit/touch"
@@ -67,8 +67,19 @@ type Filterer interface{ ClearFilter() bool }
 // Dark and Kitty current; share the pointer with the screens.
 type Term struct {
 	Dark  bool
-	Kitty bool // draws kitty graphics
-	Rex   bool // runs inside Rex, so tabs can be opened
+	Kitty bool       // draws kitty graphics
+	Rex   bool       // runs inside Rex, so tabs can be opened
+	Cell  kitty.Cell // the cell size in pixels, once the terminal reported it
+	// Width is how the terminal measures text, as Bubble Tea decided from
+	// its Unicode mode (2027) report.
+	Width ansi.Method
+}
+
+// Caps is what the terminal can do, for the markdown library's renderer
+// (markdown.Options.Caps, Renderer.SetCaps). Screens using teamd create
+// their Pictures with NoProbe: the frame probes.
+func (t *Term) Caps() markdown.Caps {
+	return markdown.Caps{Graphics: t.Kitty, Cell: t.Cell, Width: t.Width}
 }
 
 // Images says whether to use kitty graphics.
@@ -99,8 +110,8 @@ type (
 	Refresh struct{}
 	// SwitchView makes a view current (a tab tap).
 	SwitchView struct{ View int }
-	// ThemeChanged tells the screen on top that the colours, kitty support
-	// or cell size changed.
+	// ThemeChanged tells the screen on top that the colours, kitty support,
+	// cell size or text width changed: what Term says.
 	ThemeChanged struct{}
 	// Progress reports the app's state to Rex's tab; see Report.
 	Progress struct {
@@ -464,15 +475,24 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			f.term.Kitty = string(msg.Payload) == "OK"
 			return f, f.Forward(ThemeChanged{})
 		}
-		return f, nil
+		// Other answers are the screen's: teamd's first-frame query.
+		return f, f.Forward(msg)
 
 	case uv.CellSizeEvent:
 		if msg.Width > 0 && msg.Height > 0 {
-			kitty.Cell.W, kitty.Cell.H = msg.Width, msg.Height
-			bigtext.CellKnown = true
+			f.term.Cell = kitty.Cell{W: msg.Width, H: msg.Height}
 			return f, f.Forward(ThemeChanged{})
 		}
 		return f, nil
+
+	case tea.ModeReportMsg:
+		// As Bubble Tea decides: a terminal that knows Unicode mode gets
+		// it, and text is then measured by grapheme.
+		if msg.Mode == ansi.ModeUnicodeCore && (msg.Value == ansi.ModeReset || msg.Value.IsSet()) {
+			f.term.Width = ansi.GraphemeWidth
+			return f, f.Forward(ThemeChanged{})
+		}
+		return f, f.Forward(msg)
 
 	case uv.PrimaryDeviceAttributesEvent, kittyTimeoutMsg:
 		// No kitty answer before DA1 (or at all): no kitty graphics.

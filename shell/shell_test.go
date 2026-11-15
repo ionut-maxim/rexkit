@@ -7,7 +7,12 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/ansi/kitty"
+	"github.com/ionut-maxim/markdown"
+	mdkitty "github.com/ionut-maxim/markdown/kitty"
+	"github.com/ionut-maxim/markdown/teamd"
 
 	"github.com/ionut-maxim/rexkit/icons"
 	"github.com/ionut-maxim/rexkit/rexstatus"
@@ -131,5 +136,40 @@ func TestOnFocus(t *testing.T) {
 	f.Update(tea.BlurMsg{})
 	if calls != 1 {
 		t.Fatalf("OnFocus ran %d times, want 1", calls)
+	}
+}
+
+// recorder is a screen that keeps the messages it gets.
+type recorder struct {
+	page
+	got []tea.Msg
+}
+
+func (r *recorder) Update(msg tea.Msg) (Screen, tea.Cmd) { r.got = append(r.got, msg); return r, nil }
+
+func TestTermCaps(t *testing.T) {
+	closed := 0
+	rec := &recorder{page: page{"md", &closed}}
+	f := New(Options{App: "demo", Views: []View{{Name: "Doc", Root: func() Screen { return rec }}}})
+	f.Init()
+	exec(f.Start())
+
+	f.Update(uv.CellSizeEvent{Width: 8, Height: 16})
+	f.Update(tea.ModeReportMsg{Mode: ansi.ModeUnicodeCore, Value: ansi.ModeReset})
+	f.Update(uv.KittyGraphicsEvent{Options: kitty.Options{ID: mdkitty.QueryID}, Payload: []byte("OK")})
+	want := markdown.Caps{Graphics: true, Cell: mdkitty.Cell{W: 8, H: 16}, Width: ansi.GraphemeWidth}
+	if got := f.term.Caps(); got != want {
+		t.Fatalf("caps = %+v, want %+v", got, want)
+	}
+
+	// teamd's first-frame answer goes to the screen.
+	rec.got = nil
+	sync := uv.KittyGraphicsEvent{Options: kitty.Options{ID: teamd.SyncID}, Payload: []byte("OK")}
+	f.Update(sync)
+	if len(rec.got) != 1 {
+		t.Fatalf("the screen got %v", rec.got)
+	}
+	if ev, ok := rec.got[0].(uv.KittyGraphicsEvent); !ok || ev.Options.ID != teamd.SyncID {
+		t.Fatalf("the screen got %#v", rec.got[0])
 	}
 }

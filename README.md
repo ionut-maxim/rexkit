@@ -16,16 +16,16 @@ go get github.com/ionut-maxim/rexkit
 | `icons` | Nerd Font icons, and plain Unicode fallbacks for terminals without a Nerd Font (`Pick`). |
 | `components` | Layout classes for three widths (`SizeOf`: compact under 64 columns, regular up to 119, wide from 120). Buttons with rounded ends that can be tall (`Btn`, `RenderSegs`), pills, chips that wrap (`JoinChips`), section headers, progress bars, priority bars, card surfaces (`FillBg`), OSC 8 link buttons and list rows. |
 | `touch` | Tap zones and hit tests. Key hints drawn as buttons, with a "? more" button (`Hints`). Taps that send the same key a press would (`KeyMsg`), so keys and taps share one code path. List row clicks and wheel scrolling. |
-| `kitty` | Kitty graphics with Unicode placeholders. An image is sent once and drawn as text cells, so it scrolls and clips with the view. Also a capability check (`Query`), sizing (`Fit`), and sharp images on high-density screens (`TransmitSharp`). |
-| `bigtext` | Big headings and tall image buttons drawn as kitty images, for terminals that can't draw bigger text. JetBrains Mono Bold is embedded. |
-| `markdown` | GitHub-flavoured markdown drawn in the app's palette. Code is highlighted with Chroma, tables are grids or one card per row, links are OSC 8, and images are split out for you to draw. |
+| `bigtext` | Tall image buttons (`Strip`) drawn as kitty images, for terminals that can't draw bigger text, in the markdown library's JetBrains Mono Bold. |
 | `rexstatus` | Rex's Program Status Protocol (OSC 7501): a spinner, done or error mark on the app's tab while you're elsewhere. |
 | `form` | A screen that asks for a few lines of text: labelled fields you tap to focus, a hint and a check per field, Submit and Cancel buttons. It lays out for the three widths and tall screens. Submitting runs your command; answer with `form.Done` to close it or show why it failed. |
 | `shell` | The app frame. It draws a header with a tab for each view and breadcrumbs, the screen on top, and a footer with the status line and key hints as buttons. Each view keeps its own stack of screens, so switching away and back returns to where you were. It probes the terminal (background colour, kitty graphics, cell size), counts running jobs for Rex's tab status, and focuses on hover with a desktop pointer. Apps plug in their views, global keys, a loader, and a `Hook` that sees every message first. |
 
 ## Start an app
 
-`examples/hello` is the smallest app: two views as tabs, a list of cards you can tap, a detail screen with markdown, and a form (`n` adds a note). Copy it to start a new one.
+Markdown, kitty graphics and big headings come from the [markdown](https://github.com/ionut-maxim/markdown) library: its renderer, `kitty` and `bigtext` packages, and `teamd` for screens. `components.MarkdownTheme` maps the palette to its theme, and `Term.Caps` gives it what the frame found out about the terminal; create `teamd.Pictures` with `NoProbe`, since the frame probes.
+
+`examples/hello` is the smallest app: two views as tabs, a list of cards you can tap, a detail screen with markdown drawn by the library (headings, alerts and a diagram are pictures in Rex), and a form (`n` adds a note). Copy it to start a new one.
 
 ```sh
 go run github.com/ionut-maxim/rexkit/examples/hello
@@ -41,4 +41,4 @@ go run github.com/ionut-maxim/rexkit/examples/hello
 
 ## Licence
 
-MIT, see `LICENSE`. JetBrains Mono is under the SIL Open Font License 1.1 (`bigtext/fonts/OFL.txt`).
+MIT, see `LICENSE`.

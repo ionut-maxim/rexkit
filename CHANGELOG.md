@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/ionut-maxim/rexkit/compare/v0.4.1...v0.5.0) (2026-11-20)
+
+
+### Features
+
+* **shell:** an action bar with big buttons that follows the screen's shape ([#20](https://github.com/ionut-maxim/rexkit/issues/20)) ([09127dc](https://github.com/ionut-maxim/rexkit/commit/09127dc5fad6953d5f0c07be952ac92aeda55901))
+
 ## [0.4.1](https://github.com/ionut-maxim/rexkit/compare/v0.4.0...v0.4.1) (2026-11-20)
 
 

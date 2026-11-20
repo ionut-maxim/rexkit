@@ -695,8 +695,9 @@ func (f *Frame) body(width, height int) string {
 // renderBar draws the frame with the action bar: under the body, or as a
 // rail on its right.
 func (f *Frame) renderBar(mode barMode) string {
-	header := f.header()
-	headerH := lipgloss.Height(header)
+	navLines := f.navLines(mode)
+	header := strings.Join(navLines, "\n")
+	headerH := len(navLines)
 	status := f.statusLine()
 	footerH := len(status)
 	if mode == barBottom {

@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/ionut-maxim/rexkit/icons"
 	"github.com/ionut-maxim/rexkit/touch"
 )
 
@@ -158,7 +159,8 @@ func TestActionBarImages(t *testing.T) {
 		}
 	}
 	walk(cmd)
-	if !strings.Contains(sent, "\x1b_G") || len(f.pills) != 5 {
+	// Five bar buttons and the view's tab.
+	if !strings.Contains(sent, "\x1b_G") || len(f.pills) != 6 {
 		t.Fatalf("pills = %d, sent %d bytes", len(f.pills), len(sent))
 	}
 	if !strings.ContainsRune(f.View().Content, 0x10EEEE) {
@@ -170,6 +172,58 @@ func TestActionBarImages(t *testing.T) {
 		walk(cmd)
 		if strings.Contains(sent, "\x1b_G") {
 			t.Error("the same buttons were sent again")
+		}
+	}
+}
+
+// With the bar, the header is Back (when there's somewhere to go back
+// to), the views as tabs, and the path: in portrait a line under them,
+// in landscape on their right.
+func TestNavBar(t *testing.T) {
+	old := icons.Current
+	icons.Current = icons.Unicode
+	defer func() { icons.Current = old }()
+	for _, size := range [][2]int{{50, 40}, {83, 40}, {150, 26}} {
+		views := []View{
+			{Name: "Inbox", Icon: "✉", Root: func() Screen { return &actScreen{} }, Badge: func(Screen) string { return "3" }},
+			{Name: "Projects", Icon: "▣", Root: func() Screen { return &page{title: "Projects", closed: new(int)} }},
+		}
+		f := New(Options{ActionBar: true, Views: views, Context: func() string { return "Team" }})
+		run(f, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		run(f, f.Start())
+		out := screen(f)
+		if !strings.Contains(out, "Inbox 3") || !strings.Contains(out, "Projects") || strings.Contains(out, "Back") {
+			t.Errorf("%v: first screen:\n%s", size, out)
+		}
+		run(f, Push{&page{title: "linear", closed: new(int)}})
+		run(f, Push{&page{title: "NIN-1", closed: new(int)}})
+		out = screen(f)
+		lines := strings.Split(out, "\n")
+		if !strings.Contains(out, "list › linear › NIN-1") {
+			t.Errorf("%v: no path:\n%s", size, out)
+		}
+		if size[0] >= 64 && !strings.Contains(out, "‹ Back") {
+			t.Errorf("%v: no Back:\n%s", size, out)
+		}
+		// Landscape: the path sits on the tabs' line.
+		if size[0] == 150 && !strings.Contains(lines[0]+lines[1], "NIN-1") {
+			t.Errorf("landscape path not beside the tabs:\n%s", out)
+		}
+		// Tapping linear in the path goes back to it; Back goes back.
+		tap(t, f, tea.Msg(PopTo{2}))
+		if f.Top().Title() != "linear" {
+			t.Errorf("%v: path tap: top %q", size, f.Top().Title())
+		}
+		tap(t, f, tea.Msg(Pop{}))
+		if len(f.stack) != 1 {
+			t.Errorf("%v: Back: %d screens", size, len(f.stack))
+		}
+		tap(t, f, tea.Msg(SwitchView{1}))
+		if f.Current() != 1 {
+			t.Errorf("%v: tab: view %d", size, f.Current())
+		}
+		if n := len(strings.Split(f.View().Content, "\n")); n != size[1] {
+			t.Errorf("%v: %d lines", size, n)
 		}
 	}
 }

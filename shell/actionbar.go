@@ -147,7 +147,15 @@ func (f *Frame) actions() (screen, frame []barAction) {
 type barButton struct {
 	act     barAction
 	x, y, w int
+	h       int // lines; barRows when 0
 	primary bool
+}
+
+func (b barButton) rows() int {
+	if b.h > 0 {
+		return b.h
+	}
+	return barRows
 }
 
 // barButtons lays out the buttons for mode: as many of the screen's
@@ -216,7 +224,7 @@ type pillKey struct {
 }
 
 func (f *Frame) pillKey(b barButton) pillKey {
-	return pillKey{key: b.act.key, label: b.act.label, cols: b.w, rows: barRows,
+	return pillKey{key: b.act.key, label: b.act.label, cols: b.w, rows: b.rows(),
 		primary: b.primary, pressed: f.isPressed(b.act.msg), dark: f.term.Dark,
 		cellW: f.term.Cell.W, cellH: f.term.Cell.H}
 }
@@ -241,7 +249,8 @@ func (f *Frame) prepareBar() tea.Cmd {
 	_, bodyH := f.layoutHeights(mode)
 	var seq strings.Builder
 	want := map[pillKey]bool{}
-	for _, b := range f.barButtons(mode, bodyH) {
+	buttons := append(f.barButtons(mode, bodyH), f.navButtons(mode)...)
+	for _, b := range buttons {
 		k := f.pillKey(b)
 		want[k] = true
 		if _, ok := f.pills[k]; ok {
@@ -273,10 +282,7 @@ func (f *Frame) prepareBar() tea.Cmd {
 
 // layoutHeights is the header's and the body's height for mode.
 func (f *Frame) layoutHeights(mode barMode) (headerH, bodyH int) {
-	// header records its tap zones: keep the last View's.
-	zones := append([]touch.Zone(nil), f.zones...)
-	headerH = lipgloss.Height(f.header())
-	f.zones = zones
+	headerH = f.navHeight(mode)
 	footerH := f.statusLines()
 	if mode == barBottom {
 		footerH += barRows
@@ -297,17 +303,17 @@ func (f *Frame) statusLines() int {
 func (f *Frame) drawButton(b barButton) []string {
 	if f.imagesOn() {
 		if id, ok := f.pills[f.pillKey(b)]; ok {
-			return strings.Split(kitty.Placeholders(id, b.w, barRows), "\n")
+			return strings.Split(kitty.Placeholders(id, b.w, b.rows()), "\n")
 		}
 	}
-	return textButton(b.act, b.w, b.primary, f.isPressed(b.act.msg))
+	return textButton(b.act, b.w, b.rows(), b.primary, f.isPressed(b.act.msg))
 }
 
 // textButton draws a button in text: a block of the button colour three
 // lines tall, the key and the label centred on the middle line. The same
 // colours as everywhere else; square, since text can't round corners
 // without seams.
-func textButton(a barAction, w int, primary, pressed bool) []string {
+func textButton(a barAction, w, rows int, primary, pressed bool) []string {
 	w = max(w, 4)
 	bg := theme.Pal.Button
 	keyC := theme.Pal.Subtle
@@ -339,7 +345,12 @@ func textButton(a barAction, w int, primary, pressed bool) []string {
 		mid = labelSt.Render(text)
 	}
 	blank := fill.Render(strings.Repeat(" ", w))
-	return []string{blank, fill.Render(strings.Repeat(" ", left)) + mid + fill.Render(strings.Repeat(" ", right)), blank}
+	out := make([]string, max(rows, 1))
+	for i := range out {
+		out[i] = blank
+	}
+	out[(len(out)-1)/2] = fill.Render(strings.Repeat(" ", left)) + mid + fill.Render(strings.Repeat(" ", right))
+	return out
 }
 
 // bottomBar draws the bar under the body; its zones are from its top.

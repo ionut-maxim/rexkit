@@ -29,14 +29,13 @@ func DrawPill(p Pill, cols, rows int, cell kitty.Cell) image.Image {
 	w, h := cols*cw, rows*ch
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 
-	// Quiet colours: buttons sit on the surface, the main action is only
-	// tinted with the accent, and a tap deepens the tint.
-	bg, fg, keyC := theme.Pal.SurfaceHi, theme.Pal.Text, theme.Pal.Subtle
+	bg, fg := buttonColors(p.Primary, p.Pressed)
+	keyC := theme.Pal.Subtle
 	if p.Primary {
-		bg, keyC = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.35), theme.Pal.Accent
+		keyC = theme.Pal.Accent
 	}
 	if p.Pressed {
-		bg, keyC = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.7), theme.Pal.Text
+		keyC = theme.Pal.Text
 	}
 	padX, padY := float64(cw)*0.35, float64(ch)*0.3
 	if rows >= 3 {
@@ -96,6 +95,20 @@ func DrawPill(p Pill, cols, rows int, cell kitty.Cell) image.Image {
 		break
 	}
 	return img
+}
+
+// buttonColors are a button's fill and text, quiet ones: buttons sit on
+// the surface, the main action is only tinted with the accent, and a tap
+// deepens the tint.
+func buttonColors(primary, pressed bool) (bg, fg color.Color) {
+	bg, fg = theme.Pal.SurfaceHi, theme.Pal.Text
+	if primary {
+		bg = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.35)
+	}
+	if pressed {
+		bg = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.7)
+	}
+	return bg, fg
 }
 
 // mix is a blended t of the way from a to b.

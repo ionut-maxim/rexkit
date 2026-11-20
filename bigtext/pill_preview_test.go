@@ -42,3 +42,19 @@ func TestPillPreview(t *testing.T) {
 	defer f.Close()
 	png.Encode(f, sheet)
 }
+
+// PILL_PREVIEW_STRIP=<file> writes the Inbox card strip to look at.
+func TestStripPreview(t *testing.T) {
+	out := os.Getenv("PILL_PREVIEW_STRIP")
+	if out == "" {
+		t.Skip("set PILL_PREVIEW_STRIP")
+	}
+	theme.Set(true)
+	img, _, _ := Strip([]Button{{Key: "d", Text: "✓ Done", Primary: true}, {Key: "D", Text: "▶ Check in a tab"}, {Key: "a", Text: "↳ Answer", Pressed: true}}, 2, kitty.Cell{W: 8, H: 16})
+	sheet := image.NewRGBA(img.Bounds())
+	draw.Draw(sheet, sheet.Bounds(), image.NewUniform(theme.Pal.Surface), image.Point{}, draw.Src)
+	draw.Draw(sheet, sheet.Bounds(), img, image.Point{}, draw.Over)
+	f, _ := os.Create(out)
+	defer f.Close()
+	png.Encode(f, sheet)
+}

@@ -20,8 +20,6 @@ import (
 
 	mdbigtext "github.com/ionut-maxim/markdown/bigtext"
 	"github.com/ionut-maxim/markdown/kitty"
-
-	"github.com/ionut-maxim/rexkit/theme"
 )
 
 // FontFile, when set before the first drawing, names a TTF or OTF
@@ -140,16 +138,10 @@ func Strip(buttons []Button, rows int, cell kitty.Cell) (image.Image, int, []Spa
 	m := face.Metrics()
 	for i, sp := range spans {
 		b := buttons[i]
-		bg, fg := theme.Pal.SurfaceHi, theme.Pal.Text
-		if b.Primary {
-			bg = theme.Pal.AccentSoft
-		}
-		if b.Pressed {
-			bg = theme.Pal.Accent
-		}
+		bg, fg := buttonColors(b.Primary, b.Pressed)
 		x0, x1 := float64(sp.X0*cw)+1, float64(sp.X1*cw)-1
 		y0, y1 := inset, float64(h)-inset
-		roundRect(img, x0, y0, x1, y1, math.Min((y1-y0)/2, float64(ch)*0.7), bg)
+		roundRect(img, x0, y0, x1, y1, math.Min((y1-y0)/2, float64(ch)*0.3), bg)
 		tw := font.MeasureString(face, b.Text).Ceil()
 		base := int((y0+y1)/2) + (m.Ascent.Ceil()-m.Descent.Ceil())/2
 		d := font.Drawer{Dst: img, Src: image.NewUniform(fg), Face: face,

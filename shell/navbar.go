@@ -215,11 +215,16 @@ type pathMsg struct{}
 
 // goTo is the tap on the path.
 func (f *Frame) goTo() tea.Cmd {
-	if len(f.stack) <= 2 {
+	// On a sheet (Go to or More), the path closes it: a sheet is never
+	// stacked on a sheet, nor listed as a place to go.
+	if _, ok := f.Top().(*moreSheet); ok || len(f.stack) <= 2 {
 		return func() tea.Msg { return Pop{} }
 	}
 	var acts []barAction
 	for i := len(f.stack) - 2; i >= 0; i-- {
+		if _, ok := f.stack[i].(*moreSheet); ok {
+			continue
+		}
 		acts = append(acts, barAction{label: f.stack[i].Title(), msg: PopTo{i + 1}})
 	}
 	sheet := newMoreSheet(acts)

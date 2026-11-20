@@ -515,6 +515,10 @@ func sheetRow(k, label string, w int, sel bool) []string {
 
 // openMore pushes the More sheet with every action of the top screen.
 func (f *Frame) openMore() tea.Cmd {
+	// On a sheet already, More (or ?) closes it.
+	if _, ok := f.Top().(*moreSheet); ok {
+		return func() tea.Msg { return Pop{} }
+	}
 	screen, frame := f.actions()
 	all := append(append([]barAction(nil), screen...), frame...)
 	return func() tea.Msg { return Push{newMoreSheet(all)} }

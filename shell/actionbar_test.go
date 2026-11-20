@@ -135,6 +135,11 @@ func TestActionBarQuestionMarkOpensMore(t *testing.T) {
 	if _, ok := f.Top().(*moreSheet); !ok {
 		t.Fatalf("? opened %T", f.Top())
 	}
+	// Again: closes it.
+	run(f, tea.KeyPressMsg{Code: '?', Text: "?"})
+	if _, ok := f.Top().(*moreSheet); ok || len(f.stack) != 1 {
+		t.Errorf("a second ? left %d screens", len(f.stack))
+	}
 }
 
 // With kitty graphics, each button is an image: sent after the update,
@@ -215,6 +220,17 @@ func TestNavBar(t *testing.T) {
 		sheet, ok := f.Top().(*moreSheet)
 		if !ok || sheet.Title() != "Go to" || sheet.acts[0].label != "linear" || sheet.acts[1].label != "list" {
 			t.Fatalf("%v: path tap opened %T", size, f.Top())
+		}
+		// Tapping the path again closes the sheet, it doesn't stack another.
+		depth := len(f.stack)
+		tap(t, f, tea.Msg(pathMsg{}))
+		if len(f.stack) != depth-1 {
+			t.Fatalf("%v: a second path tap: %d screens, want %d", size, len(f.stack), depth-1)
+		}
+		tap(t, f, tea.Msg(pathMsg{}))
+		sheet = f.Top().(*moreSheet)
+		if len(sheet.acts) != 2 {
+			t.Errorf("%v: Go to lists %d places", size, len(sheet.acts))
 		}
 		_ = f.View()
 		c := sheet.cells[0]

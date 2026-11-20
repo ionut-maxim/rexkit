@@ -54,10 +54,10 @@ func PillWidth(text string) int { return ansi.StringWidth(text) + 2 }
 
 // Button is something to tap: a rounded shape on the surface colour with
 // an optional key in the accent colour, then the label.
-func Button(key, label string) string { return Btn(key, label, theme.Pal.SurfaceHi, false).Text }
+func Button(key, label string) string { return Btn(key, label, theme.Pal.Button, false).Text }
 
 // ButtonWidth is the cell width of button(key, label).
-func ButtonWidth(key, label string) int { return Btn(key, label, theme.Pal.SurfaceHi, false).W }
+func ButtonWidth(key, label string) int { return Btn(key, label, theme.Pal.Button, false).W }
 
 // Seg is a piece of a row that may hold buttons: plain text, or a button
 // with a background colour. A row draws on one line; when tall, it gets an
@@ -72,9 +72,11 @@ type Seg struct {
 // Plain is a Seg of plain text, not tappable.
 func Plain(text string) Seg { return Seg{Text: text, W: ansi.StringWidth(text)} }
 
-// Btn is a button: the key in the accent colour, then the label, padded,
-// with rounded ends (square without a Nerd Font). Tall ones get more
-// padding.
+// Btn is a button: the key in the accent colour, then the label, padded
+// on a block of bg (theme.Pal.Button, ButtonOn, ButtonPress or
+// ButtonWarn: every button looks the same, text or image). Square ends:
+// a single line can only have capsule ends, which look louder than the
+// images' soft corners. Tall ones get more padding.
 func Btn(key, label string, bg color.Color, tall bool) Seg {
 	inner := lipgloss.NewStyle().Background(bg)
 	pad := " "
@@ -83,7 +85,14 @@ func Btn(key, label string, bg color.Color, tall bool) Seg {
 	}
 	body := inner.Render(pad)
 	if key != "" {
-		body += inner.Foreground(theme.Pal.Accent).Bold(true).Render(key)
+		// The key: quiet, in the accent only on the main action.
+		keyC := theme.Pal.Subtle
+		if bg == theme.Pal.ButtonOn {
+			keyC = theme.Pal.Accent
+		} else if bg == theme.Pal.ButtonPress || bg == theme.Pal.ButtonWarn {
+			keyC = theme.Pal.Text
+		}
+		body += inner.Foreground(keyC).Bold(true).Render(key)
 		if label != "" {
 			body += inner.Render(" ")
 		}
@@ -92,10 +101,6 @@ func Btn(key, label string, bg color.Color, tall bool) Seg {
 		body += inner.Foreground(theme.Pal.Text).Render(label)
 	}
 	body += inner.Render(pad)
-	if icons.Current.PillL != "" {
-		cap := lipgloss.NewStyle().Foreground(bg)
-		body = cap.Render(icons.Current.PillL) + body + cap.Render(icons.Current.PillR)
-	}
 	return Seg{Text: body, W: ansi.StringWidth(body), Bg: bg}
 }
 
@@ -214,9 +219,9 @@ func Spread(left, right string, width int) string {
 // opens url on the device that was tapped (on iOS, the app that claims
 // the link, else Safari; the Mac's browser), even with mouse reporting on.
 func LinkButton(url, label string, pressed bool) string {
-	bg := theme.Pal.SurfaceHi
+	bg := theme.Pal.Button
 	if pressed {
-		bg = theme.Pal.AccentSoft
+		bg = theme.Pal.ButtonPress
 	}
 	return ansi.SetHyperlink(url) + Btn("", label, bg, false).Text + ansi.ResetHyperlink()
 }

@@ -14,13 +14,13 @@ go get github.com/ionut-maxim/rexkit
 |---|---|
 | `theme` | A dark and a light palette, `Set(dark)` when the terminal reports its background, and the shared styles. |
 | `icons` | Nerd Font icons, and plain Unicode fallbacks for terminals without a Nerd Font (`Pick`). |
-| `components` | Layout classes for three widths (`SizeOf`: compact under 64 columns, regular up to 119, wide from 120). Buttons with rounded ends that can be tall (`Btn`, `RenderSegs`), pills, chips that wrap (`JoinChips`), section headers, progress bars, priority bars, card surfaces (`FillBg`), OSC 8 link buttons and list rows. |
+| `components` | Layout classes for three widths (`SizeOf`: compact under 64 columns, regular up to 119, wide from 120). Buttons in the theme's button colours that can be tall (`Btn`, `RenderSegs`), pills, chips that wrap (`JoinChips`), section headers, progress bars, priority bars, card surfaces (`FillBg`), OSC 8 link buttons and list rows. |
 | `touch` | Tap zones and hit tests. Key hints drawn as buttons, with a "? more" button (`Hints`). Taps that send the same key a press would (`KeyMsg`), so keys and taps share one code path. List row clicks and wheel scrolling. |
 | `lists` | Lists that scroll like a touch screen: a swipe (the wheel) moves the page and leaves the selection alone, a key brings the selection back into view, a tap selects and a tap on the selected row opens it. `Scroll` is the state for a list you draw yourself; `Rows` is a ready list of `components.Row` with a `/` filter, to use instead of a Bubbles list. |
-| `bigtext` | Tall image buttons (`Strip`) drawn as kitty images, for terminals that can't draw bigger text, in the markdown library's JetBrains Mono Bold. |
+| `bigtext` | Tall image buttons drawn as kitty images, for terminals that can't draw bigger text: a strip of them (`Strip`) or one that fills a given size (`DrawPill`). Labels are in the markdown library's JetBrains Mono Bold, icons in an embedded cut of Symbols Nerd Font Mono (`fonts/README.md`). |
 | `rexstatus` | Rex's Program Status Protocol (OSC 7501): a spinner, done or error mark on the app's tab while you're elsewhere. |
 | `form` | A screen that asks for a few lines of text: labelled fields you tap to focus, a hint and a check per field, Submit and Cancel buttons. It lays out for the three widths and tall screens. Submitting runs your command; answer with `form.Done` to close it or show why it failed. |
-| `shell` | The app frame. It draws a header with a tab for each view and breadcrumbs, the screen on top, and a footer with the status line and key hints as buttons. Each view keeps its own stack of screens, so switching away and back returns to where you were. It probes the terminal (background colour, kitty graphics, cell size), counts running jobs for Rex's tab status, and focuses on hover with a desktop pointer. Apps plug in their views, global keys, a loader, and a `Hook` that sees every message first. |
+| `shell` | The app frame. It draws a header with a tab for each view and breadcrumbs, the screen on top, and a footer with the status line and key hints as buttons. With `Options.ActionBar` it's built for touch instead (see below). Each view keeps its own stack of screens, so switching away and back returns to where you were. It probes the terminal (background colour, kitty graphics, cell size), counts running jobs for Rex's tab status, and focuses on hover with a desktop pointer. Apps plug in their views, global keys, a loader, and a `Hook` that sees every message first. |
 
 ## Start an app
 
@@ -36,6 +36,13 @@ go run github.com/ionut-maxim/rexkit/examples/hello
 
 - **Touch first.** Anything you can tap looks like a button and has a tap zone. A tap shows pressed for a moment (`PressDelay`) before its action runs.
 - **Three widths.** Lay out for compact, regular and wide. On a folded phone that means one thing per line.
+- **The action bar** (`shell.Options.ActionBar`). The frame lays itself out for the terminal's shape on every resize, since a phone turns all the time:
+  - portrait: a header row of big buttons (Back when there's a screen to go back to, then the views as equal tabs with their badges), the path on a line under it, and the screen's first actions as equal buttons three lines tall at the bottom;
+  - landscape (110+ columns, under 40 rows): the header's buttons two lines tall with the path beside them, and the actions stacked in a rail on the right (screens get the narrower width);
+  - too small for either: the one-line header and key hints.
+
+  A screen's `Keys()` order matters: the first is its main action (tinted) and the first few fill the bar. The rest, plus back, refresh and quit, are in the **More** sheet (also `?`). The path is one tap target: back one screen, or a **Go to** sheet of the earlier screens. A sheet is never stacked on a sheet. With kitty graphics the buttons are images (`bigtext.DrawPill`, made after each update, never in View); otherwise filled blocks of the button colours.
+- **One button style.** Every button uses the theme's button colours (`theme.Pal.Button`, `ButtonOn` for the main or selected one, `ButtonPress`, `ButtonWarn`), text or image. Text buttons are square: one line can only have capsule ends, which look louder than the images' soft corners.
 - **Tall screens.** With 40 rows or more, header and footer buttons get an empty row above and below that's part of their tap zone. Don't draw tall buttons with half blocks: they leave seams on iOS. For a real tall button, use an image (`bigtext.Strip`).
 - **Images as text.** Use kitty placeholders only, never direct placements. Make images after an update, never in `View`, and delete them when the screen closes.
 - **Links open where you tap.** Use OSC 8 link buttons for things to open, not app actions.

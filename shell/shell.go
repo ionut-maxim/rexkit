@@ -179,6 +179,10 @@ type Options struct {
 	// each time the terminal gains focus once the views have started
 	// (a Rex tab coming back to the front), for example to reload.
 	OnFocus func() tea.Cmd
+	// ActionBar replaces the one-line key hints with big buttons for
+	// touch: a bar under the body in portrait, a rail on its right in
+	// landscape, and a More sheet for the rest (see barMode).
+	ActionBar bool
 }
 
 // Frame is the root model.
@@ -209,6 +213,7 @@ type Frame struct {
 	err      error
 	showHelp bool
 	keys     frameKeys
+	pills    map[pillKey]int // the action bar's buttons sent as images
 }
 
 type frameKeys struct {
@@ -402,6 +407,17 @@ func (f *Frame) report(state rexstatus.State, msg string) string {
 // Update runs the app's Hook, then handles navigation, taps, the probes
 // and global keys, and passes the rest to the screen on top.
 func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m, cmd := f.update(msg)
+	if f.o.ActionBar {
+		// The bar's images, for what the next View shows.
+		if bar := f.prepareBar(); bar != nil {
+			return m, tea.Batch(cmd, bar)
+		}
+	}
+	return m, cmd
+}
+
+func (f *Frame) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if f.o.Hook != nil {
 		if cmd, ok := f.o.Hook(msg); ok {
 			return f, cmd
@@ -410,6 +426,8 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		f.width, f.height = msg.Width, msg.Height
+		// The screens get the body's width: a rail takes its share.
+		msg.Width = f.bodyWidth()
 		return f, f.Forward(msg)
 
 	case tea.MouseClickMsg:
@@ -422,7 +440,7 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			f.pressed = target
 			return f, tea.Tick(components.PressDelay, func(time.Time) tea.Msg { return releaseMsg{target} })
 		}
-		if m.Y >= f.bodyTop && m.Y < f.bodyTop+f.bodyH {
+		if m.Y >= f.bodyTop && m.Y < f.bodyTop+f.bodyH && m.X < f.bodyWidth() {
 			m.Y -= f.bodyTop
 			return f, f.Forward(tea.MouseClickMsg(m))
 		}
@@ -459,7 +477,21 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case releaseMsg:
 		f.pressed = nil
-		return f.Update(msg.target)
+		return f.update(msg.target)
+
+	case moreMsg:
+		return f, f.openMore()
+
+	case pathMsg:
+		return f, f.goTo()
+
+	case sheetRun:
+		var pop tea.Cmd
+		if _, ok := f.Top().(*moreSheet); ok && len(f.stack) > 1 {
+			pop = f.Pop()
+		}
+		m, cmd := f.update(msg.msg)
+		return m, tea.Batch(pop, cmd)
 
 	case PopTo:
 		var cmds []tea.Cmd
@@ -504,7 +536,7 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if f.prog == rexstatus.Done || f.prog == rexstatus.Error {
 			f.prog = rexstatus.Idle
 			cmd := tea.Raw(f.report(rexstatus.Idle, ""))
-			m, next := f.Update(msg)
+			m, next := f.update(msg)
 			return m, tea.Batch(cmd, next)
 		}
 		if key.Matches(msg, f.keys.ForceQuit) {
@@ -517,6 +549,9 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !capturing {
 			if key.Matches(msg, f.keys.Help) {
+				if f.barMode() != barHints {
+					return f, f.openMore()
+				}
 				f.showHelp = !f.showHelp
 				return f, nil
 			}
@@ -576,7 +611,7 @@ func (f *Frame) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		f.stack = append(f.stack, msg.Screen)
 		f.err, f.status = nil, ""
 		// Tell the new screen its size right away, before its data arrives.
-		s, size := msg.Screen, tea.WindowSizeMsg{Width: f.width, Height: f.height}
+		s, size := msg.Screen, tea.WindowSizeMsg{Width: f.bodyWidth(), Height: f.height}
 		s2, cmd := s.Update(size)
 		f.stack[len(f.stack)-1] = s2
 		return f, tea.Batch(cmd, s2.Init())
@@ -635,6 +670,9 @@ func (f *Frame) render() string {
 			theme.Styles.ErrTitle.Render("Can't start") + "\n\n" + f.o.StartErr.Error() + "\n\n" + theme.Styles.Faint.Render("q quit"))
 	}
 
+	if mode := f.barMode(); mode != barHints {
+		return f.renderBar(mode)
+	}
 	header := f.header()
 	footer, footerZones := f.footer()
 	headerH, footerH := lipgloss.Height(header), lipgloss.Height(footer)
@@ -644,14 +682,71 @@ func (f *Frame) render() string {
 		z.Y += headerH + bodyH
 		f.zones = append(f.zones, z)
 	}
+	return header + "\n" + fitBody(f.body(f.width, bodyH), f.width, bodyH) + "\n" + footer
+}
 
-	var body string
+// body is the top screen's view, or the loading line.
+func (f *Frame) body(width, height int) string {
 	if top := f.Top(); top != nil {
-		body = top.View(f.width, bodyH)
+		return top.View(width, height)
 	} else if f.err == nil && f.o.Loading != nil {
-		body = theme.Styles.Faint.Render(f.o.Loading())
+		return theme.Styles.Faint.Render(f.o.Loading())
 	}
-	return header + "\n" + fitBody(body, f.width, bodyH) + "\n" + footer
+	return ""
+}
+
+// renderBar draws the frame with the action bar: under the body, or as a
+// rail on its right.
+func (f *Frame) renderBar(mode barMode) string {
+	navLines := f.navLines(mode)
+	header := strings.Join(navLines, "\n")
+	headerH := len(navLines)
+	status := f.statusLine()
+	footerH := len(status)
+	if mode == barBottom {
+		footerH += barRows
+	}
+	bodyH := max(f.height-headerH-footerH, 1)
+	bodyW := f.bodyWidth()
+	f.bodyTop, f.bodyH = headerH, bodyH
+	buttons := f.barButtons(mode, bodyH)
+	body := fitBody(f.body(bodyW, bodyH), bodyW, bodyH)
+	var footer []string
+	footer = append(footer, status...)
+	switch mode {
+	case barBottom:
+		lines, zones := f.bottomBar(buttons)
+		for _, z := range zones {
+			z.Y += headerH + bodyH + len(status)
+			f.zones = append(f.zones, z)
+		}
+		footer = append(footer, lines...)
+	case barRail:
+		lines, zones := f.railLines(buttons, bodyH)
+		for _, z := range zones {
+			z.Y += headerH
+			z.X0 += bodyW + 1
+			z.X1 += bodyW + 1
+			f.zones = append(f.zones, z)
+		}
+		body = joinRail(body, bodyW, lines)
+	}
+	out := header + "\n" + body
+	if len(footer) > 0 {
+		out += "\n" + strings.Join(footer, "\n")
+	}
+	return out
+}
+
+// statusLine is the error or the status, when there is one.
+func (f *Frame) statusLine() []string {
+	switch {
+	case f.err != nil:
+		return []string{ansi.Truncate(theme.Styles.Err.Render(icons.Current.Warning+" "+f.o.ErrText(f.err))+theme.Styles.Muted.Render("  r retry"), f.width, "…")}
+	case f.status != "":
+		return []string{ansi.Truncate(theme.Styles.Status.Render(icons.Current.Info+" "+f.status), f.width, "…")}
+	}
+	return nil
 }
 
 // fitBody makes the body exactly height lines: lines wider than width
@@ -712,7 +807,7 @@ func (f *Frame) header() string {
 	isPressed := func(msg tea.Msg) bool { return msg != nil && reflect.DeepEqual(msg, f.pressed) }
 	bgFor := func(msg tea.Msg, normal color.Color) color.Color {
 		if isPressed(msg) {
-			return theme.Pal.Accent
+			return theme.Pal.ButtonPress
 		}
 		return normal
 	}
@@ -724,9 +819,9 @@ func (f *Frame) header() string {
 	tabsW := 0
 	for v := range f.o.Views {
 		msg := SwitchView{v}
-		bg := theme.Pal.SurfaceHi
+		bg := theme.Pal.Button
 		if v == f.cur {
-			bg = theme.Pal.AccentSoft
+			bg = theme.Pal.ButtonOn
 		}
 		tsz := sz
 		if sz == components.Compact && len(f.stack) <= 1 {
@@ -742,13 +837,13 @@ func (f *Frame) header() string {
 		if sz == components.Compact {
 			label = icons.Current.Back
 		}
-		back = components.Btn("", label, bgFor(Pop{}, theme.Pal.SurfaceHi), tall)
+		back = components.Btn("", label, bgFor(Pop{}, theme.Pal.Button), tall)
 	}
 	crumbSeg := func(c crumb, last bool) components.Seg {
 		if last {
 			return components.Plain(theme.Styles.Title.Render(c.text))
 		}
-		return components.Btn("", c.text, bgFor(PopTo{c.depth}, theme.Pal.SurfaceHi), tall)
+		return components.Btn("", c.text, bgFor(PopTo{c.depth}, theme.Pal.Button), tall)
 	}
 
 	// Fold the oldest crumbs until the rest fit.

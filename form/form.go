@@ -385,12 +385,12 @@ func (f *Form) View(width, _ int) string {
 		add(padS + theme.Styles.Status.Render(icons.Current.Spinner+" "+f.o.Submit+"…"))
 		return strings.Join(lines, "\n")
 	}
-	submitBg, cancelBg := theme.Pal.AccentSoft, theme.Pal.SurfaceHi
+	submitBg, cancelBg := theme.Pal.ButtonOn, theme.Pal.Button
 	if _, ok := f.pressed.(submitMsg); ok {
-		submitBg = theme.Pal.Accent
+		submitBg = theme.Pal.ButtonPress
 	}
 	if _, ok := f.pressed.(cancelMsg); ok {
-		cancelBg = theme.Pal.Accent
+		cancelBg = theme.Pal.ButtonPress
 	}
 	submit := components.Btn("", icons.Current.Check+" "+f.o.Submit, submitBg, tall)
 	cancel := components.Btn("", "Cancel", cancelBg, tall)

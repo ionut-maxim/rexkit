@@ -173,3 +173,21 @@ func TestTermCaps(t *testing.T) {
 		t.Fatalf("the screen got %#v", rec.got[0])
 	}
 }
+
+func TestFitBody(t *testing.T) {
+	for _, tc := range []struct {
+		body          string
+		width, height int
+		want          string
+	}{
+		{"a\nb", 5, 4, "a\nb\n\n"},
+		{"a\nb\nc\nd", 5, 2, "a\nb"},
+		{"abcdefgh", 4, 3, "abcd\nefgh\n"},
+		{"", 3, 2, "\n"},
+		{"\x1b[31mred\x1b[m", 3, 1, "\x1b[31mred\x1b[m"},
+	} {
+		if got := fitBody(tc.body, tc.width, tc.height); got != tc.want {
+			t.Errorf("fitBody(%q, %d, %d) = %q, want %q", tc.body, tc.width, tc.height, got, tc.want)
+		}
+	}
+}

@@ -651,8 +651,36 @@ func (f *Frame) render() string {
 	} else if f.err == nil && f.o.Loading != nil {
 		body = theme.Styles.Faint.Render(f.o.Loading())
 	}
-	body = lipgloss.NewStyle().Width(f.width).Height(bodyH).MaxHeight(bodyH).Render(body)
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
+	return header + "\n" + fitBody(body, f.width, bodyH) + "\n" + footer
+}
+
+// fitBody makes the body exactly height lines: lines wider than width
+// wrap (as lipgloss's Width does), extra lines are cut and missing ones
+// added. Unlike a lipgloss style it doesn't pad every line to the width
+// or measure lines twice: View runs after every message, so this is on
+// the hot path.
+func fitBody(body string, width, height int) string {
+	out := make([]string, 0, height)
+	for line := range strings.SplitSeq(body, "\n") {
+		if len(out) == height {
+			break
+		}
+		// A line's width is at most its length in bytes: only lines
+		// that might be too wide are measured.
+		if len(line) > width && ansi.StringWidth(line) > width {
+			for wl := range strings.SplitSeq(lipgloss.Wrap(line, width, ""), "\n") {
+				if len(out) < height {
+					out = append(out, wl)
+				}
+			}
+			continue
+		}
+		out = append(out, line)
+	}
+	for len(out) < height {
+		out = append(out, "")
+	}
+	return strings.Join(out, "\n")
 }
 
 // Tall is true when there's room for tall buttons: the phone with the

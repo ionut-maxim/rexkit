@@ -301,26 +301,41 @@ func (r *Rows) status() string {
 		theme.Styles.Muted.Render(fmt.Sprintf("  %d of %s", len(r.visible), count))
 }
 
-// View draws the status line and the rows that fit.
+// View draws the status line and the rows that fit. Only the rows in
+// view are drawn: a long list costs what a short one does.
 func (r *Rows) View() string {
 	w, h := max(r.width, 1), max(r.height, head+2)
+	bodyH := h - head
+	// Each row is two lines and a gap, but the last has no gap.
+	total := len(r.visible)*rowStep - 1
+	if len(r.visible) == 0 {
+		total = 0
+		if r.IsFiltered() {
+			total = 1
+		}
+	}
+	off := r.scroll.Place(r.cursor*rowStep, 2, bodyH, total)
+	out := []string{ansi.Truncate(r.status(), w, "…"), ""}
+	if len(r.visible) == 0 {
+		if r.IsFiltered() {
+			out = append(out, theme.Styles.Faint.Render("  Nothing matches."))
+		}
+		return strings.Join(out, "\n")
+	}
+	first, last := off/rowStep, min((off+bodyH)/rowStep, len(r.visible)-1)
 	var lines []string
-	for i, idx := range r.visible {
-		it := r.items[idx]
-		row := components.RenderRow(it, i == r.cursor, len(r.filter) > 0, r.matches[idx], w)
+	for i := first; i <= last; i++ {
+		idx := r.visible[i]
+		row := components.RenderRow(r.items[idx], i == r.cursor, len(r.filter) > 0, r.matches[idx], w)
 		lines = append(lines, strings.Split(row, "\n")...)
 		if i+1 < len(r.visible) {
 			lines = append(lines, "")
 		}
 	}
-	if len(r.visible) == 0 && r.IsFiltered() {
-		lines = append(lines, theme.Styles.Faint.Render("  Nothing matches."))
-	}
-	bodyH := h - head
-	off := r.scroll.Place(r.cursor*rowStep, 2, bodyH, len(lines))
-	out := []string{ansi.Truncate(r.status(), w, "…"), ""}
-	for y := 0; y < bodyH && off+y < len(lines); y++ {
-		out = append(out, lines[off+y])
+	// lines starts at the first drawn row's top.
+	skip := off - first*rowStep
+	for y := 0; y < bodyH && skip+y < len(lines); y++ {
+		out = append(out, lines[skip+y])
 	}
 	return strings.Join(out, "\n")
 }

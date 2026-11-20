@@ -230,3 +230,59 @@ func TestTitleMatches(t *testing.T) {
 		t.Errorf("got %v", got)
 	}
 }
+
+// viewAll is View the old way: every row drawn, then the window cut out.
+func viewAll(r *Rows) string {
+	w, h := max(r.width, 1), max(r.height, head+2)
+	var lines []string
+	for i, idx := range r.visible {
+		row := components.RenderRow(r.items[idx], i == r.cursor, len(r.filter) > 0, r.matches[idx], w)
+		lines = append(lines, strings.Split(row, "\n")...)
+		if i+1 < len(r.visible) {
+			lines = append(lines, "")
+		}
+	}
+	bodyH := h - head
+	off := r.scroll.Offset()
+	out := []string{ansi.Truncate(r.status(), w, "…"), ""}
+	for y := 0; y < bodyH && off+y < len(lines); y++ {
+		out = append(out, lines[off+y])
+	}
+	return strings.Join(out, "\n")
+}
+
+// Drawing only the rows in view gives the same screen as drawing all.
+func TestRowsViewDrawsOnlyWhatFits(t *testing.T) {
+	for _, h := range []int{3, 4, 5, 14, 15, 16, 61} {
+		r := NewRows("issue", "issues")
+		r.SetItems(rows(20))
+		r.SetSize(60, h)
+		steps := []tea.Msg{key("j"), key("j"), wheel(true), wheel(true), wheel(true), key("G"), wheel(false), key("k"), wheel(false), wheel(false), key("g")}
+		for i, m := range steps {
+			r.Update(m)
+			got := r.View()
+			if want := viewAll(r); got != want {
+				t.Fatalf("h=%d step %d:\ngot:\n%s\nwant:\n%s", h, i, got, want)
+			}
+		}
+	}
+}
+
+func BenchmarkRowsView(b *testing.B) {
+	for _, n := range []int{50, 1000} {
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			r := NewRows("issue", "issues")
+			r.SetItems(rows(n))
+			r.SetSize(83, 45)
+			b.ReportAllocs()
+			for i := range b.N {
+				if i%40 < 20 {
+					r.Update(key("j"))
+				} else {
+					r.Update(key("k"))
+				}
+				_ = r.View()
+			}
+		})
+	}
+}

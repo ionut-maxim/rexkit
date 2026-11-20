@@ -131,6 +131,10 @@ func (f *Frame) actions() (screen, frame []barAction) {
 	if capturing {
 		return screen, nil
 	}
+	// The More sheet has its own Run and Close: no More on More.
+	if _, ok := top.(*moreSheet); ok {
+		return screen, nil
+	}
 	if len(f.stack) > 1 {
 		frame = append(frame, actionOf(f.keys.Back))
 	}
@@ -165,6 +169,9 @@ func (f *Frame) barButtons(mode barMode, bodyH int) []barButton {
 	}
 	shown := screen
 	more := len(frame) > 0
+	if !more && len(shown) <= slots {
+		slots = len(shown) + 1 // everything fits: no More
+	}
 	if len(shown)+len(frame) > slots || (more && len(shown) >= slots) {
 		shown = shown[:min(len(shown), slots-1)]
 	}
@@ -293,52 +300,46 @@ func (f *Frame) drawButton(b barButton) []string {
 			return strings.Split(kitty.Placeholders(id, b.w, barRows), "\n")
 		}
 	}
-	return outlineButton(b.act, b.w, b.primary, f.isPressed(b.act.msg))
+	return textButton(b.act, b.w, b.primary, f.isPressed(b.act.msg))
 }
 
-// outlineButton draws a button in text: a rounded outline three lines
-// tall, the key in the accent colour and the label centred.
-func outlineButton(a barAction, w int, primary, pressed bool) []string {
+// textButton draws a button in text: a block of the button colour three
+// lines tall, the key and the label centred on the middle line. The same
+// colours as everywhere else; square, since text can't round corners
+// without seams.
+func textButton(a barAction, w int, primary, pressed bool) []string {
 	w = max(w, 4)
-	border := lipgloss.NewStyle().Foreground(theme.Pal.Muted)
-	fill := lipgloss.NewStyle()
+	bg := theme.Pal.Button
+	keyC := theme.Pal.Subtle
 	if primary {
-		border = lipgloss.NewStyle().Foreground(theme.Pal.Accent)
+		bg, keyC = theme.Pal.ButtonOn, theme.Pal.Accent
 	}
 	if pressed {
-		border = lipgloss.NewStyle().Foreground(theme.Pal.Accent)
-		fill = fill.Background(theme.Pal.AccentSoft)
+		bg, keyC = theme.Pal.ButtonPress, theme.Pal.Text
 	}
-	inner := w - 2
+	fill := lipgloss.NewStyle().Background(bg)
 	text := a.key + " " + a.label
 	if a.key == "" {
 		text = a.label
 	}
-	if ansi.StringWidth(text) > inner-2 {
+	if ansi.StringWidth(text) > w-2 {
 		text = a.label
 	}
-	if ansi.StringWidth(text) > inner-2 {
-		text = ansi.Truncate(text, max(inner-2, 1), "…")
+	if ansi.StringWidth(text) > w-2 {
+		text = ansi.Truncate(text, max(w-2, 1), "…")
 	}
 	tw := ansi.StringWidth(text)
-	left := (inner - tw) / 2
-	right := inner - tw - left
-	keySt := fill.Foreground(theme.Pal.Accent).Bold(true)
+	left := (w - tw) / 2
+	right := w - tw - left
 	labelSt := fill.Foreground(theme.Pal.Text)
-	if primary {
-		labelSt = labelSt.Bold(true)
-	}
 	var mid string
-	if strings.HasPrefix(text, a.key+" ") && a.key != "" {
-		mid = keySt.Render(a.key) + labelSt.Render(" "+a.label)
+	if a.key != "" && strings.HasPrefix(text, a.key+" ") {
+		mid = fill.Foreground(keyC).Bold(true).Render(a.key) + labelSt.Render(" "+a.label)
 	} else {
 		mid = labelSt.Render(text)
 	}
-	return []string{
-		border.Render("╭" + strings.Repeat("─", inner) + "╮"),
-		border.Render("│") + fill.Render(strings.Repeat(" ", left)) + mid + fill.Render(strings.Repeat(" ", right)) + border.Render("│"),
-		border.Render("╰" + strings.Repeat("─", inner) + "╯"),
-	}
+	blank := fill.Render(strings.Repeat(" ", w))
+	return []string{blank, fill.Render(strings.Repeat(" ", left)) + mid + fill.Render(strings.Repeat(" ", right)), blank}
 }
 
 // bottomBar draws the bar under the body; its zones are from its top.
@@ -395,9 +396,11 @@ func joinRail(body string, bodyW int, rail []string) string {
 type moreSheet struct {
 	acts   []barAction
 	cursor int
-	tops   []int // the line each entry starts at, in the last View
-	width  int
+	cells  []sheetCell // where each entry is, in the last View
 }
+
+// sheetCell is where an entry was drawn: its first line and columns.
+type sheetCell struct{ y, x0, x1 int }
 
 func newMoreSheet(acts []barAction) *moreSheet { return &moreSheet{acts: acts} }
 
@@ -406,7 +409,10 @@ func (m *moreSheet) Title() string    { return "More" }
 func (m *moreSheet) Capturing() bool  { return false }
 func (m *moreSheet) Refresh() tea.Cmd { return nil }
 func (m *moreSheet) Keys() []key.Binding {
-	return []key.Binding{key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "run"))}
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "run")),
+		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close")),
+	}
 }
 
 // sheetRun closes the More sheet, then runs msg on the screen below.
@@ -430,9 +436,9 @@ func (m *moreSheet) Update(msg tea.Msg) (Screen, tea.Cmd) {
 			return m, m.run(m.cursor)
 		}
 	case tea.MouseClickMsg:
-		y := msg.Mouse().Y
-		for i, top := range m.tops {
-			if y >= top && y < top+barRows {
+		mo := msg.Mouse()
+		for i, c := range m.cells {
+			if mo.Y >= c.y && mo.Y < c.y+barRows && mo.X >= c.x0 && mo.X < c.x1 {
 				m.cursor = i
 				return m, m.run(i)
 			}
@@ -442,45 +448,52 @@ func (m *moreSheet) Update(msg tea.Msg) (Screen, tea.Cmd) {
 }
 
 func (m *moreSheet) View(width, height int) string {
-	w := min(width-2, 60)
-	var lines []string
-	m.tops = m.tops[:0]
-	lines = append(lines, "")
+	// As wide as the bar under it, with the same margins, and a line
+	// between entries so each reads as its own button. A wide screen
+	// (landscape) gets columns, so every entry fits without scrolling.
+	w := max(width-2, 8)
+	cols := 1
+	for cols < 3 && (w-(cols)*2)/(cols+1) >= 30 && (len(m.acts)+cols-1)/cols*(barRows+1)+1 > height {
+		cols++
+	}
+	cw := (w - (cols-1)*2) / cols
+	rowsPer := (len(m.acts) + cols - 1) / cols
+	lines := make([]string, 1+rowsPer*(barRows+1))
+	m.cells = m.cells[:0]
 	for i, a := range m.acts {
-		if len(lines)+barRows > height {
-			break
-		}
-		m.tops = append(m.tops, len(lines))
-		label := a.label
-		row := outlineRow(a.key, label, w, i == m.cursor)
-		for _, l := range row {
-			lines = append(lines, " "+l)
+		col, row := i/rowsPer, i%rowsPer
+		y := 1 + row*(barRows+1)
+		x := 1 + col*(cw+2)
+		m.cells = append(m.cells, sheetCell{y: y, x0: x, x1: x + cw})
+		for j, l := range sheetRow(a.key, a.label, cw, i == m.cursor) {
+			line := lines[y+j]
+			if pad := x - ansi.StringWidth(line); pad > 0 {
+				line += strings.Repeat(" ", pad)
+			}
+			lines[y+j] = line + l
 		}
 	}
 	return strings.Join(lines, "\n")
 }
 
-// outlineRow is a More entry: the label on the left, the key on the
-// right, in a rounded outline.
-func outlineRow(k, label string, w int, sel bool) []string {
-	border := lipgloss.NewStyle().Foreground(theme.Pal.Muted)
-	labelSt := lipgloss.NewStyle().Foreground(theme.Pal.Text)
+// sheetRow is a More entry: a button-coloured block three lines tall,
+// the label on the left and the key on the right.
+func sheetRow(k, label string, w int, sel bool) []string {
+	bg := theme.Pal.Button
 	if sel {
-		border = lipgloss.NewStyle().Foreground(theme.Pal.Accent)
-		labelSt = labelSt.Bold(true)
+		bg = theme.Pal.ButtonOn
 	}
-	inner := max(w-2, 6)
-	keyText := theme.Styles.Accent.Render(k)
-	space := inner - 2 - ansi.StringWidth(label) - ansi.StringWidth(k) - 1
-	if space < 1 {
-		label = ansi.Truncate(label, max(inner-4-ansi.StringWidth(k), 1), "…")
-		space = inner - 2 - ansi.StringWidth(label) - ansi.StringWidth(k) - 1
+	fill := lipgloss.NewStyle().Background(bg)
+	w = max(w, 8)
+	room := w - 4 - ansi.StringWidth(k) - 1
+	if ansi.StringWidth(label) > room {
+		label = ansi.Truncate(label, max(room, 1), "…")
 	}
-	return []string{
-		border.Render("╭" + strings.Repeat("─", inner) + "╮"),
-		border.Render("│") + " " + labelSt.Render(label) + strings.Repeat(" ", max(space, 1)) + keyText + " " + border.Render("│"),
-		border.Render("╰" + strings.Repeat("─", inner) + "╯"),
-	}
+	gap := w - 4 - ansi.StringWidth(label) - ansi.StringWidth(k)
+	mid := fill.Render("  ") + fill.Foreground(theme.Pal.Text).Render(label) + fill.Render(strings.Repeat(" ", max(gap, 1))) +
+		fill.Foreground(theme.Pal.Subtle).Render(k) + fill.Render("  ")
+	blank := fill.Render(strings.Repeat(" ", w))
+	return []string{blank, mid, blank}
 }
 
 // openMore pushes the More sheet with every action of the top screen.

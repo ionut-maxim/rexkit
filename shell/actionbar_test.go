@@ -72,7 +72,7 @@ func TestActionBarFollowsTheShape(t *testing.T) {
 		mode barMode
 		want []string
 	}{
-		{50, 40, barBottom, []string{"⏎ Open", "Work on it", "⋯ More", "╭"}},
+		{50, 40, barBottom, []string{"⏎ Open", "Work on it", "⋯ More"}},
 		{83, 40, barBottom, []string{"⏎ Open", "w Work on it", "s Status", "a Assignee", "⋯ More"}},
 		{150, 26, barRail, []string{"⏎ Open", "l Label", "⋯ More"}},
 		{50, 14, barHints, []string{"enter open"}},
@@ -120,7 +120,8 @@ func TestActionBarTaps(t *testing.T) {
 				label = i
 			}
 		}
-		run(f, tea.MouseClickMsg{X: 5, Y: f.bodyTop + sheet.tops[label] + 1, Button: tea.MouseLeft})
+		c := sheet.cells[label]
+		run(f, tea.MouseClickMsg{X: c.x0 + 1, Y: f.bodyTop + c.y + 1, Button: tea.MouseLeft})
 		if f.Top() != Screen(s) || s.keys[len(s.keys)-1] != "l" {
 			t.Errorf("%v: after the sheet: top %T, keys %v", size, f.Top(), s.keys)
 		}

@@ -65,9 +65,9 @@ func KeyMsg(name string) tea.KeyPressMsg {
 // the full help). Tall buttons take three lines a row.
 func Hints(bindings []key.Binding, width int, all, tall bool, pressed tea.Msg) ([]string, []Zone) {
 	const gap = 1
-	moreBg := theme.Pal.SurfaceHi
+	moreBg := theme.Pal.Button
 	if pressed != nil && reflect.DeepEqual(pressed, tea.Msg(KeyMsg("?"))) {
-		moreBg = theme.Pal.AccentSoft
+		moreBg = theme.Pal.ButtonPress
 	}
 	more := components.Btn("?", "more", moreBg, tall)
 	var shown []key.Binding
@@ -86,9 +86,9 @@ func Hints(bindings []key.Binding, width int, all, tall bool, pressed tea.Msg) (
 	x := 0
 	for i, b := range shown {
 		h := b.Help()
-		bg := theme.Pal.SurfaceHi
+		bg := theme.Pal.Button
 		if pressed != nil && reflect.DeepEqual(pressed, tea.Msg(KeyMsg(b.Keys()[0]))) {
-			bg = theme.Pal.AccentSoft
+			bg = theme.Pal.ButtonPress
 		}
 		sg := components.Btn(h.Key, h.Desc, bg, tall)
 		g := 0

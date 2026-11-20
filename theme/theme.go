@@ -15,6 +15,12 @@ import (
 type Palette struct {
 	Accent, AccentSoft, Text, Subtle, Muted, Surface, SurfaceHi color.Color
 	Green, Yellow, Orange, Red, Blue, Cyan, Pink                color.Color
+
+	// Buttons, the same everywhere (text or image): Button is a plain
+	// one, ButtonOn the main action or the selected one (only tinted
+	// with the accent), ButtonPress one being tapped, ButtonWarn one
+	// waiting for a confirming tap. Set fills them in.
+	Button, ButtonOn, ButtonPress, ButtonWarn color.Color
 }
 
 // Dark is the palette for dark backgrounds.
@@ -75,6 +81,10 @@ func Set(dark bool) {
 	} else {
 		Pal = Light
 	}
+	Pal.Button = Pal.SurfaceHi
+	Pal.ButtonOn = Mix(Pal.SurfaceHi, Pal.AccentSoft, 0.35)
+	Pal.ButtonPress = Mix(Pal.SurfaceHi, Pal.AccentSoft, 0.7)
+	Pal.ButtonWarn = Mix(Pal.SurfaceHi, Pal.Orange, 0.45)
 	fg := func(c color.Color) lipgloss.Style { return lipgloss.NewStyle().Foreground(c) }
 	Styles = StyleSet{
 		Brand:    fg(Pal.Accent).Bold(true),
@@ -102,4 +112,12 @@ func Hex(c string) color.Color {
 		return lipgloss.Color(c)
 	}
 	return Pal.Subtle
+}
+
+// Mix is the colour t of the way from a to b.
+func Mix(a, b color.Color, t float64) color.Color {
+	ar, ag, ab, _ := a.RGBA()
+	br, bg, bb, _ := b.RGBA()
+	f := func(x, y uint32) uint8 { return uint8(float64(x>>8)*(1-t) + float64(y>>8)*t + 0.5) }
+	return color.RGBA{f(ar, br), f(ag, bg), f(ab, bb), 255}
 }

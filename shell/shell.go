@@ -803,7 +803,7 @@ func (f *Frame) header() string {
 	isPressed := func(msg tea.Msg) bool { return msg != nil && reflect.DeepEqual(msg, f.pressed) }
 	bgFor := func(msg tea.Msg, normal color.Color) color.Color {
 		if isPressed(msg) {
-			return theme.Pal.Accent
+			return theme.Pal.ButtonPress
 		}
 		return normal
 	}
@@ -815,9 +815,9 @@ func (f *Frame) header() string {
 	tabsW := 0
 	for v := range f.o.Views {
 		msg := SwitchView{v}
-		bg := theme.Pal.SurfaceHi
+		bg := theme.Pal.Button
 		if v == f.cur {
-			bg = theme.Pal.AccentSoft
+			bg = theme.Pal.ButtonOn
 		}
 		tsz := sz
 		if sz == components.Compact && len(f.stack) <= 1 {
@@ -833,13 +833,13 @@ func (f *Frame) header() string {
 		if sz == components.Compact {
 			label = icons.Current.Back
 		}
-		back = components.Btn("", label, bgFor(Pop{}, theme.Pal.SurfaceHi), tall)
+		back = components.Btn("", label, bgFor(Pop{}, theme.Pal.Button), tall)
 	}
 	crumbSeg := func(c crumb, last bool) components.Seg {
 		if last {
 			return components.Plain(theme.Styles.Title.Render(c.text))
 		}
-		return components.Btn("", c.text, bgFor(PopTo{c.depth}, theme.Pal.SurfaceHi), tall)
+		return components.Btn("", c.text, bgFor(PopTo{c.depth}, theme.Pal.Button), tall)
 	}
 
 	// Fold the oldest crumbs until the rest fit.

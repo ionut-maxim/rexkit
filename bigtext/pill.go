@@ -97,24 +97,15 @@ func DrawPill(p Pill, cols, rows int, cell kitty.Cell) image.Image {
 	return img
 }
 
-// buttonColors are a button's fill and text, quiet ones: buttons sit on
-// the surface, the main action is only tinted with the accent, and a tap
-// deepens the tint.
+// buttonColors are a button's fill and text: the palette's, the same as
+// text buttons.
 func buttonColors(primary, pressed bool) (bg, fg color.Color) {
-	bg, fg = theme.Pal.SurfaceHi, theme.Pal.Text
+	bg = theme.Pal.Button
 	if primary {
-		bg = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.35)
+		bg = theme.Pal.ButtonOn
 	}
 	if pressed {
-		bg = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.7)
+		bg = theme.Pal.ButtonPress
 	}
-	return bg, fg
-}
-
-// mix is a blended t of the way from a to b.
-func mix(a, b color.Color, t float64) color.Color {
-	ar, ag, ab, _ := a.RGBA()
-	br, bg, bb, _ := b.RGBA()
-	f := func(x, y uint32) uint8 { return uint8((float64(x>>8)*(1-t) + float64(y>>8)*t) + 0.5) }
-	return color.RGBA{f(ar, br), f(ag, bg), f(ab, bb), 255}
+	return bg, theme.Pal.Text
 }

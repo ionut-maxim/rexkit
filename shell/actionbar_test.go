@@ -209,11 +209,25 @@ func TestNavBar(t *testing.T) {
 		if size[0] == 150 && !strings.Contains(lines[0]+lines[1], "NIN-1") {
 			t.Errorf("landscape path not beside the tabs:\n%s", out)
 		}
-		// Tapping linear in the path goes back to it; Back goes back.
-		tap(t, f, tea.Msg(PopTo{2}))
-		if f.Top().Title() != "linear" {
-			t.Errorf("%v: path tap: top %q", size, f.Top().Title())
+		// Tapping the path opens Go to; its entry for linear goes back
+		// there.
+		tap(t, f, tea.Msg(pathMsg{}))
+		sheet, ok := f.Top().(*moreSheet)
+		if !ok || sheet.Title() != "Go to" || sheet.acts[0].label != "linear" || sheet.acts[1].label != "list" {
+			t.Fatalf("%v: path tap opened %T", size, f.Top())
 		}
+		_ = f.View()
+		c := sheet.cells[0]
+		run(f, tea.MouseClickMsg{X: c.x0 + 1, Y: f.bodyTop + c.y + 1, Button: tea.MouseLeft})
+		if f.Top().Title() != "linear" {
+			t.Errorf("%v: Go to linear: top %q", size, f.Top().Title())
+		}
+		// With one screen to go back to, the path goes back.
+		tap(t, f, tea.Msg(pathMsg{}))
+		if len(f.stack) != 1 {
+			t.Errorf("%v: path tap with one screen behind: %d screens", size, len(f.stack))
+		}
+		run(f, Push{&page{title: "again", closed: new(int)}})
 		tap(t, f, tea.Msg(Pop{}))
 		if len(f.stack) != 1 {
 			t.Errorf("%v: Back: %d screens", size, len(f.stack))

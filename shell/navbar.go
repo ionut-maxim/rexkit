@@ -174,16 +174,7 @@ func (f *Frame) pathLine(width, x0, y int) (string, []touch.Zone) {
 		steps, folded = steps[1:], true
 	}
 	var out strings.Builder
-	var zones []touch.Zone
-	x := x0
-	add := func(text string, msg tea.Msg) {
-		w := ansi.StringWidth(text)
-		if msg != nil {
-			zones = append(zones, touch.Zone{Y: y, H: 1, X0: x, X1: x + w, Msg: msg})
-		}
-		out.WriteString(text)
-		x += w
-	}
+	add := func(text string, _ tea.Msg) { out.WriteString(text) }
 	if folded {
 		add(theme.Styles.Muted.Render("…"), PopTo{max(steps[0].depth-1, 1)})
 		add(sep, nil)
@@ -199,7 +190,16 @@ func (f *Frame) pathLine(width, x0, y int) (string, []touch.Zone) {
 		}
 		add(stepText(s, last), msg)
 	}
+	// The whole line is one target (a single line is hard to hit word by
+	// word): ▾ says it opens.
+	var zones []touch.Zone
+	if len(f.stack) > 1 {
+		out.WriteString(" " + theme.Styles.Muted.Render("▾"))
+	}
 	text := ansi.Truncate(out.String(), max(width, 1), "…")
+	if len(f.stack) > 1 {
+		zones = append(zones, touch.Zone{Y: y, H: 1, X0: x0, X1: x0 + max(width, ansi.StringWidth(text)), Msg: pathMsg{}})
+	}
 	if f.o.Context != nil {
 		ctx := theme.Styles.Muted.Render(icons.Current.Team + " " + f.o.Context())
 		if gap := width - ansi.StringWidth(text) - ansi.StringWidth(ctx); gap >= 3 {
@@ -207,4 +207,22 @@ func (f *Frame) pathLine(width, x0, y int) (string, []touch.Zone) {
 		}
 	}
 	return text, zones
+}
+
+// pathMsg is a tap on the path: back one screen, or, with more to go
+// back to, the Go to sheet.
+type pathMsg struct{}
+
+// goTo is the tap on the path.
+func (f *Frame) goTo() tea.Cmd {
+	if len(f.stack) <= 2 {
+		return func() tea.Msg { return Pop{} }
+	}
+	var acts []barAction
+	for i := len(f.stack) - 2; i >= 0; i-- {
+		acts = append(acts, barAction{label: f.stack[i].Title(), msg: PopTo{i + 1}})
+	}
+	sheet := newMoreSheet(acts)
+	sheet.title = "Go to"
+	return func() tea.Msg { return Push{sheet} }
 }

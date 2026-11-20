@@ -9,6 +9,7 @@ import (
 
 	"github.com/ionut-maxim/markdown/kitty"
 
+	"github.com/ionut-maxim/rexkit/icons"
 	"github.com/ionut-maxim/rexkit/theme"
 )
 
@@ -29,8 +30,12 @@ func TestPillPreview(t *testing.T) {
 		{Pill{Key: "s", Label: "Status", Pressed: true}, 15},
 		{Pill{Key: "⋯", Label: "More"}, 12},
 		{Pill{Key: "a", Label: "Assignee"}, 21},
+		{Pill{Key: icons.Nerd.Inbox, Label: "Inbox 17", Primary: true}, 15},
+		{Pill{Key: icons.Nerd.Project, Label: "Projects"}, 15},
+		{Pill{Key: icons.Nerd.Branch, Label: "PRs 3"}, 15},
+		{Pill{Key: "‹", Label: "Back"}, 10},
 	}
-	sheet := image.NewRGBA(image.Rect(0, 0, 80*48, 3*48))
+	sheet := image.NewRGBA(image.Rect(0, 0, 160*48, 3*48))
 	draw.Draw(sheet, sheet.Bounds(), image.NewUniform(theme.Pal.Surface), image.Point{}, draw.Src)
 	x := 0
 	for _, p := range pills {

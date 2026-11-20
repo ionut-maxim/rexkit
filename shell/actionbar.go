@@ -405,6 +405,7 @@ func joinRail(body string, bodyW int, rail []string) string {
 // entry each. A tap or enter closes it and runs the action on the screen
 // it was opened from.
 type moreSheet struct {
+	title  string // "More" when empty
 	acts   []barAction
 	cursor int
 	cells  []sheetCell // where each entry is, in the last View
@@ -415,8 +416,13 @@ type sheetCell struct{ y, x0, x1 int }
 
 func newMoreSheet(acts []barAction) *moreSheet { return &moreSheet{acts: acts} }
 
-func (m *moreSheet) Init() tea.Cmd    { return nil }
-func (m *moreSheet) Title() string    { return "More" }
+func (m *moreSheet) Init() tea.Cmd { return nil }
+func (m *moreSheet) Title() string {
+	if m.title != "" {
+		return m.title
+	}
+	return "More"
+}
 func (m *moreSheet) Capturing() bool  { return false }
 func (m *moreSheet) Refresh() tea.Cmd { return nil }
 func (m *moreSheet) Keys() []key.Binding {

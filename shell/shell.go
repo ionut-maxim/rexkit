@@ -482,6 +482,9 @@ func (f *Frame) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case moreMsg:
 		return f, f.openMore()
 
+	case pathMsg:
+		return f, f.goTo()
+
 	case sheetRun:
 		var pop tea.Cmd
 		if _, ok := f.Top().(*moreSheet); ok && len(f.stack) > 1 {

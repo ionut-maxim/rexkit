@@ -54,7 +54,20 @@ func stripFace(ch int) (font.Face, error) { return stripFaceAt(float64(ch)) }
 // stripFaceAt is the strip's font for text h pixels tall (a cell's
 // height gives the terminal's own text size).
 func stripFaceAt(h float64) (font.Face, error) {
-	return opentype.NewFace(Font(), &opentype.FaceOptions{Size: h * 0.62, DPI: 72, Hinting: font.HintingFull})
+	opts := &opentype.FaceOptions{Size: h * 0.62, DPI: 72, Hinting: font.HintingFull}
+	main, err := opentype.NewFace(Font(), opts)
+	if err != nil {
+		return nil, err
+	}
+	sym := symbols()
+	if sym == nil {
+		return main, nil
+	}
+	icons, err := opentype.NewFace(sym, opts)
+	if err != nil {
+		return main, nil
+	}
+	return fallbackFace{[]font.Face{main, icons}}, nil
 }
 
 // roundRect fills a rounded rectangle, anti-aliased at the corners.

@@ -51,8 +51,12 @@ func hasGlyphs(face font.Face, s string) bool {
 }
 
 // stripFace is the font at the size for button labels: about one row.
-func stripFace(ch int) (font.Face, error) {
-	return opentype.NewFace(Font(), &opentype.FaceOptions{Size: float64(ch) * 0.62, DPI: 72, Hinting: font.HintingFull})
+func stripFace(ch int) (font.Face, error) { return stripFaceAt(float64(ch)) }
+
+// stripFaceAt is the strip's font for text h pixels tall (a cell's
+// height gives the terminal's own text size).
+func stripFaceAt(h float64) (font.Face, error) {
+	return opentype.NewFace(Font(), &opentype.FaceOptions{Size: h * 0.62, DPI: 72, Hinting: font.HintingFull})
 }
 
 // roundRect fills a rounded rectangle, anti-aliased at the corners.

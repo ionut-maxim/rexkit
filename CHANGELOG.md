@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/ionut-maxim/rexkit/compare/v0.4.0...v0.4.1) (2026-11-20)
+
+
+### Performance Improvements
+
+* long lists and every frame redraw cheaply ([#15](https://github.com/ionut-maxim/rexkit/issues/15)) ([6dd24e1](https://github.com/ionut-maxim/rexkit/commit/6dd24e1987277efdb319a8ffb92350552cc38d3d))
+
 ## [0.4.0](https://github.com/ionut-maxim/rexkit/compare/v0.3.0...v0.4.0) (2026-11-15)
 
 

@@ -2,7 +2,7 @@ package bigtext
 
 import (
 	"image"
-	"math"
+	"image/color"
 
 	mdbigtext "github.com/ionut-maxim/markdown/bigtext"
 	"github.com/ionut-maxim/markdown/kitty"
@@ -29,19 +29,22 @@ func DrawPill(p Pill, cols, rows int, cell kitty.Cell) image.Image {
 	w, h := cols*cw, rows*ch
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 
-	bg, fg, keyC := theme.Pal.SurfaceHi, theme.Pal.Text, theme.Pal.Accent
+	// Quiet colours: buttons sit on the surface, the main action is only
+	// tinted with the accent, and a tap deepens the tint.
+	bg, fg, keyC := theme.Pal.SurfaceHi, theme.Pal.Text, theme.Pal.Subtle
 	if p.Primary {
-		bg, keyC = theme.Pal.AccentSoft, theme.Pal.Text
+		bg, keyC = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.35), theme.Pal.Accent
 	}
 	if p.Pressed {
-		bg, fg, keyC = theme.Pal.Accent, theme.Pal.Surface, theme.Pal.Surface
+		bg, keyC = mix(theme.Pal.SurfaceHi, theme.Pal.AccentSoft, 0.7), theme.Pal.Text
 	}
 	padX, padY := float64(cw)*0.35, float64(ch)*0.3
 	if rows >= 3 {
 		padY = float64(ch) * 0.4
 	}
 	x0, y0, x1, y1 := padX, padY, float64(w)-padX, float64(h)-padY
-	roundRect(img, x0, y0, x1, y1, math.Min((y1-y0)/2, float64(ch)*0.9), bg)
+	// Softly rounded corners, not a capsule.
+	roundRect(img, x0, y0, x1, y1, float64(ch)*0.3, bg)
 
 	// The text: as big as a cell and a bit, smaller when it doesn't fit.
 	room := int(x1-x0) - 2*cw
@@ -93,4 +96,12 @@ func DrawPill(p Pill, cols, rows int, cell kitty.Cell) image.Image {
 		break
 	}
 	return img
+}
+
+// mix is a blended t of the way from a to b.
+func mix(a, b color.Color, t float64) color.Color {
+	ar, ag, ab, _ := a.RGBA()
+	br, bg, bb, _ := b.RGBA()
+	f := func(x, y uint32) uint8 { return uint8((float64(x>>8)*(1-t) + float64(y>>8)*t) + 0.5) }
+	return color.RGBA{f(ar, br), f(ag, bg), f(ab, bb), 255}
 }

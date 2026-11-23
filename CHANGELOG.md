@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/ionut-maxim/rexkit/compare/v0.5.0...v0.5.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deps:** update github.com/charmbracelet/ultraviolet digest to 8ecbcf0 ([#22](https://github.com/ionut-maxim/rexkit/issues/22)) ([b1f2d6a](https://github.com/ionut-maxim/rexkit/commit/b1f2d6a4c1f6abc6e028a13f34ba34d66cc7ef93))
+
 ## [0.5.0](https://github.com/ionut-maxim/rexkit/compare/v0.4.1...v0.5.0) (2026-11-20)
 
 

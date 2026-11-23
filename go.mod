@@ -6,7 +6,7 @@ require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/lipgloss/v2 v2.0.6
-	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4
+	github.com/charmbracelet/ultraviolet v0.0.0-20261119151026-8ecbcf0e188c
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/ionut-maxim/markdown v0.1.0
 	github.com/sahilm/fuzzy v0.1.3
